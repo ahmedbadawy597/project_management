@@ -1,0 +1,43 @@
+import type { ProjectApp } from '../types'
+
+export const apps: ProjectApp[] = [
+  {
+    id: 'app-001',
+    projectId: 'prj-001',
+    code: 'SVC-PORTAL',
+    name: 'Citizen services portal',
+    nameAr: 'بوابة خدمات المستفيدين',
+    description: 'Online request submission and tracking for Awqaf services.',
+    descriptionAr: 'تقديم ومتابعة الطلبات إلكترونياً لخدمات الأوقاف.',
+    ownerId: 'p-pm1',
+    status: 'Active',
+    plannedStart: '2026-03-01',
+    plannedEnd: '2026-10-30',
+  },
+  {
+    id: 'app-002',
+    projectId: 'prj-001',
+    code: 'SVC-CATALOG',
+    name: 'Service catalog',
+    nameAr: 'فهرس الخدمات',
+    description: 'Catalog and eligibility rules for digital services.',
+    descriptionAr: 'فهرس وقواعد أهلية الخدمات الرقمية.',
+    ownerId: 'p-ba1',
+    status: 'Active',
+    plannedStart: '2026-04-01',
+    plannedEnd: '2026-08-15',
+  },
+  {
+    id: 'app-003',
+    projectId: 'prj-002',
+    code: 'CASE-CORE',
+    name: 'Case lifecycle core',
+    nameAr: 'نواة دورة حياة الحالة',
+    description: 'Intake, assessment, and disbursement workflows.',
+    descriptionAr: 'سير عمل الاستقبال والتقييم والصرف.',
+    ownerId: 'p-pm2',
+    status: 'Active',
+    plannedStart: '2026-04-01',
+    plannedEnd: '2026-11-15',
+  },
+]
