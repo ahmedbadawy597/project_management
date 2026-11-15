@@ -4,10 +4,12 @@ import {
   Map,
   GanttChartSquare,
   CheckSquare,
+  Ticket,
   Flag,
   Gauge,
   AlertTriangle,
   Users,
+  UserCog,
   Wallet,
   FileText,
   Stamp,
@@ -15,7 +17,7 @@ import {
   Bell,
   Settings,
   Shield,
-  ClipboardList,
+  AppWindow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -28,11 +30,15 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { key: 'executive', path: '/executive', icon: LayoutDashboard, section: 'main' },
+  /** Writers land on /manage (full hub). View-only roles use /projects. */
   { key: 'projects', path: '/projects', icon: FolderKanban, section: 'main' },
-  { key: 'manage', path: '/manage', icon: ClipboardList, section: 'main' },
+  { key: 'manage', path: '/manage', icon: FolderKanban, section: 'main' },
+  { key: 'teams', path: '/teams', icon: UserCog, section: 'main' },
+  { key: 'appsCatalog', path: '/apps-catalog', icon: AppWindow, section: 'main' },
   { key: 'roadmap', path: '/roadmap', icon: Map, section: 'main' },
   { key: 'gantt', path: '/gantt', icon: GanttChartSquare, section: 'delivery' },
   { key: 'tasks', path: '/tasks', icon: CheckSquare, section: 'delivery' },
+  { key: 'tickets', path: '/tickets', icon: Ticket, section: 'delivery' },
   { key: 'milestones', path: '/milestones', icon: Flag, section: 'delivery' },
   { key: 'sla', path: '/sla', icon: Gauge, section: 'delivery' },
   { key: 'risks', path: '/risks', icon: AlertTriangle, section: 'delivery' },

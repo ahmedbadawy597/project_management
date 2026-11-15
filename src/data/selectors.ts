@@ -30,6 +30,9 @@ export interface DomainState {
   activities: ActivityItem[]
   notifications: NotificationItem[]
   apps?: ProjectApp[]
+  projectMembers?: Record<string, string[]>
+  appMembers?: Record<string, Array<{ personId: string; role: string }>>
+  appAccess?: Record<string, string[]>
 }
 
 export function scheduleVariance(project: Project) {
@@ -97,6 +100,7 @@ export function getPortfolioKpis(state: DomainState) {
   const active = enriched.filter((p) => p.status === 'Active')
   const planned = enriched.filter((p) => p.status === 'Planned')
   const completed = enriched.filter((p) => p.status === 'Completed')
+  const pending = enriched.filter((p) => p.status === 'Planned' || p.status === 'On Hold')
   const atRisk = active.filter((p) => p.health === 'At Risk')
   const delayed = active.filter((p) => p.health === 'Delayed')
   const overallActual =
@@ -107,22 +111,40 @@ export function getPortfolioKpis(state: DomainState) {
     active.length === 0
       ? 0
       : Math.round(active.reduce((s, p) => s + p.plannedProgress, 0) / active.length)
+  const hasSlaData = state.slas.length > 0 || active.some((p) => p.slaCompliance > 0)
   const slaCompliance =
-    active.length === 0
-      ? 100
+    !hasSlaData || active.length === 0
+      ? 0
       : Math.round(active.reduce((s, p) => s + p.slaCompliance, 0) / active.length)
+
+  const today = DEMO_TODAY
+  const overdueTasks = state.wbs.filter(
+    (w) => w.type === 'task' && w.status !== 'Completed' && w.end < today,
+  ).length
+
+  const apps = state.apps ?? []
+  const appsOperating = apps.filter((a) => a.publishStatus === 'يعمل').length
+  const appsRequiringUpdates = apps.filter(
+    (a) => a.publishStatus === 'محدّث حديثًا' || (a.readiness ?? 100) < 100,
+  ).length
 
   const totalBudget = state.projects.reduce((s, p) => s + p.budgetApproved, 0)
   const allocated = state.projects.reduce((s, p) => s + p.budgetAllocated, 0)
   const spent = state.projects.reduce((s, p) => s + p.budgetSpent, 0)
 
   return {
-    totalApplications: state.projects.length,
+    totalApplications: apps.length,
+    totalProjects: state.projects.length,
     activeProjects: active.length,
     plannedProjects: planned.length,
+    pendingProjects: pending.length,
     completedProjects: completed.length,
     atRiskProjects: atRisk.length,
     delayedProjects: delayed.length,
+    overdueTasks,
+    totalTeamMembers: state.people.length,
+    appsOperating,
+    appsRequiringUpdates,
     overallActualProgress: overallActual,
     overallPlannedProgress: overallPlanned,
     scheduleVariance: overallActual - overallPlanned,

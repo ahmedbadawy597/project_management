@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.github
+.agents
+.cursor
+test-results
+playwright-report
+e2e
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+awqaf-ppm-api
+*.log
+.DS_Store

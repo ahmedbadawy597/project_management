@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/auth/AuthProvider'
 import {
   flexRender,
   getCoreRowModel,
@@ -28,6 +29,7 @@ const QUICK = ['All', 'Active', 'Planned', 'On Track', 'At Risk', 'Delayed', 'Co
 
 export function PortfolioPage() {
   const { t } = useTranslation()
+  const { can } = useAuth()
   const { state, language, isLoading, isError, refetch } = useDomain()
   const [quick, setQuick] = useState<(typeof QUICK)[number]>('All')
   const [view, setView] = useState<'table' | 'cards'>('table')
@@ -35,8 +37,10 @@ export function PortfolioPage() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [savedFilter, setSavedFilter] = useState('')
+  const canManage = can('projects:write')
 
   const data = useMemo(() => {
+    if (canManage) return [] as EnrichedProject[]
     if (!state) return []
     let rows = state.projects.map((p) => enrichProject(state, p))
     if (quick === 'Active' || quick === 'Planned' || quick === 'Completed') {
@@ -45,7 +49,7 @@ export function PortfolioPage() {
       rows = rows.filter((r) => r.health === quick)
     }
     return rows
-  }, [state, quick])
+  }, [state, quick, canManage])
 
   const quickLabel = (q: (typeof QUICK)[number]) => {
     const map: Record<(typeof QUICK)[number], string> = {
@@ -176,6 +180,10 @@ export function PortfolioPage() {
     if (name === 'Planned Pipeline') setQuick('Planned')
   }
 
+  if (canManage) {
+    return <Navigate to="/manage" replace />
+  }
+
   return (
     <div>
       <PageHeader
@@ -239,7 +247,7 @@ export function PortfolioPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Input
-            className="w-56"
+            className="w-full sm:w-56"
             placeholder={t('common.search')}
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -276,8 +284,8 @@ export function PortfolioPage() {
 
       {view === 'table' ? (
         <div className="neo overflow-hidden animate-fade-up">
-          <div className="overflow-x-auto">
-            <table className="data-table w-full min-w-[1100px] text-sm">
+          <div className="table-scroll edge-fade-x">
+            <table className="data-table w-full min-w-[880px] text-sm lg:min-w-[1100px]">
               <thead className="bg-bg/70 text-start">
                 {table.getHeaderGroups().map((hg) => (
                   <tr key={hg.id}>
@@ -331,7 +339,9 @@ export function PortfolioPage() {
             >
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-xs text-muted">{p.code}</p>
+                  <p className="text-xs text-muted" dir="ltr">
+                    {p.code}
+                  </p>
                   <h3 className="text-sm font-semibold text-navy">{language === 'ar' ? p.nameAr : p.name}</h3>
                 </div>
                 <StatusBadge status={p.status} />

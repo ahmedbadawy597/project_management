@@ -6,9 +6,11 @@ import { Progress } from '@/components/ui/progress'
 import { useDomain } from '@/api/useDomain'
 import { PageError, PageLoading } from '@/components/shared/PageStates'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useDirection } from '@/hooks/useDirection'
 
 export function ResourcesPage() {
   const { t } = useTranslation()
+  const { isRtl } = useDirection()
   const { state, language, isLoading, isError, refetch } = useDomain()
 
   if (isLoading || !state) return <PageLoading />
@@ -29,7 +31,7 @@ export function ResourcesPage() {
   return (
     <div>
       <PageHeader title={t('resources.title')} description={t('resources.subtitle')} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="kpi-grid mb-6">
         <KPICard label={t('resources.totalMembers')} value={staff.length} />
         <KPICard label={t('resources.allocated')} value={allocated} tone="info" />
         <KPICard label={t('resources.available')} value={available} tone="success" />
@@ -50,8 +52,8 @@ export function ResourcesPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={workload}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF1" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} reversed={isRtl} />
+                <YAxis orientation={isRtl ? 'right' : 'left'} />
                 <Tooltip />
                 <Bar dataKey="allocation" fill="#3159A5" name={t('resources.allocationPct')} />
               </BarChart>
@@ -85,7 +87,8 @@ export function ResourcesPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <table className="w-full min-w-[900px] text-sm">
+        <div className="table-scroll edge-fade-x">
+        <table className="w-full min-w-[720px] text-sm md:min-w-[900px]">
           <thead className="bg-bg text-xs text-muted">
             <tr>
               <th className="px-3 py-2 text-start">{t('common.employee')}</th>
@@ -122,6 +125,7 @@ export function ResourcesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

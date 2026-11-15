@@ -74,6 +74,12 @@ export function ProjectDetailPage() {
             <Button variant="outline" asChild>
               <Link to={`/gantt?project=${project.id}`}>{t('project.openGantt')}</Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link to={`/teams?project=${project.id}`}>{t('nav.teams')}</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to={`/tickets?project=${project.id}`}>{t('nav.tickets')}</Link>
+            </Button>
             <Button asChild>
               <Link to="/tasks">{t('project.manageTasks')}</Link>
             </Button>
@@ -105,7 +111,7 @@ export function ProjectDetailPage() {
       </div>
 
       <Tabs defaultValue="overview">
-        <div className="overflow-x-auto">
+        <div className="table-scroll edge-fade-x">
           <TabsList className="h-auto min-w-max flex-wrap">
             {tabs.map(([value, label]) => (
               <TabsTrigger key={value} value={value}>
@@ -135,6 +141,24 @@ export function ProjectDetailPage() {
             <KPICard label={t('project.pendingApprovals')} value={enriched.pendingApprovals} tone="info" />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
+            {(state.apps ?? []).filter((a) => a.projectId === project.id).length > 0 ? (
+              <Card className="lg:col-span-2">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>{t('manage.appsInProject')}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {(state.apps ?? [])
+                    .filter((a) => a.projectId === project.id)
+                    .map((app) => (
+                      <Button key={app.id} variant="outline" size="sm" asChild>
+                        <Link to={`/tickets?project=${project.id}&app=${app.id}`}>
+                          {app.code} · {t('manage.openTickets')}
+                        </Link>
+                      </Button>
+                    ))}
+                </CardContent>
+              </Card>
+            ) : null}
             <Card>
               <CardHeader>
                 <CardTitle>{t('project.progressComparison')}</CardTitle>

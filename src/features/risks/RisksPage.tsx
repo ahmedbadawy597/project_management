@@ -3,10 +3,12 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { KPICard } from '@/components/shared/KPICard'
 import { RiskPanel } from './RiskPanel'
 import { useDomain } from '@/api/useDomain'
+import { useAccessScope } from '@/hooks/useAccessScope'
 import { PageError, PageLoading } from '@/components/shared/PageStates'
 
 export function RisksPage() {
   const { t } = useTranslation()
+  const { isScoped } = useAccessScope()
   const { state, isLoading, isError, refetch } = useDomain()
 
   if (isLoading || !state) return <PageLoading />
@@ -20,8 +22,11 @@ export function RisksPage() {
 
   return (
     <div>
-      <PageHeader title={t('risks.title')} description={t('risks.subtitle')} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <PageHeader
+        title={t('risks.title')}
+        description={t(isScoped ? 'risks.subtitleJoined' : 'risks.subtitle')}
+      />
+      <div className="kpi-grid mb-6">
         <KPICard label={t('risks.openRisks')} value={openRisks} tone="warning" />
         <KPICard label={t('risks.criticalRisks')} value={critical} tone="danger" />
         <KPICard label={t('risks.openIssues')} value={openIssues} tone="info" />

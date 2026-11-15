@@ -16,7 +16,7 @@ interface UiState {
 export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
-      language: 'en',
+      language: 'ar',
       sidebarCollapsed: false,
       density: 'comfortable',
       setLanguage: (language) => {
@@ -32,7 +32,7 @@ export const useUiStore = create<UiState>()(
       },
     }),
     {
-      name: 'awqaf-ppm-ui',
+      name: 'awqaf-ppm-ui-v2-ar',
       partialize: (s) => ({
         language: s.language,
         sidebarCollapsed: s.sidebarCollapsed,

@@ -15,7 +15,7 @@ export const chartTheme = {
   warning: '#C4922A',
   danger: '#C45C4A',
   muted: '#D9D3BF',
-  fontFamily: '"Cairo", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif',
+  fontFamily: '"IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
 }
 
 export const statusColors: Record<string, string> = {

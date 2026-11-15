@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <Button
             onClick={() => {
               this.setState({ error: null })
-              window.location.assign('/executive')
+              window.location.assign('/projects')
             }}
           >
             Return to dashboard
@@ -46,7 +46,7 @@ export function RouteErrorFallback() {
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 p-8 text-center">
       <h1 className="text-lg font-semibold text-navy">Page failed to load</h1>
       <p className="text-sm text-muted">Try again or return to the executive dashboard.</p>
-      <Button onClick={() => window.location.assign('/executive')}>Go to executive</Button>
+      <Button onClick={() => window.location.assign('/projects')}>Go to projects</Button>
     </div>
   )
 }

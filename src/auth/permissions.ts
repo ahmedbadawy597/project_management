@@ -1,6 +1,8 @@
 export type AppRole =
   | 'Portfolio Director'
   | 'Project Manager'
+  | 'Developer'
+  | 'Business'
   | 'PMO Analyst'
   | 'Executive Viewer'
 
@@ -73,10 +75,24 @@ const ROLE_CAPABILITIES: Record<AppRole, Capability[]> = {
     'gantt:view',
     'roadmap:view',
   ],
+  Developer: [
+    'projects:view',
+    'tasks:write',
+    'risks:write',
+    'notifications:view',
+  ],
+  Business: [
+    'projects:view',
+    'tasks:write',
+    'documents:view',
+    'approvals:view',
+    'notifications:view',
+  ],
   'PMO Analyst': [
     'portfolio:view',
     'executive:view',
     'projects:view',
+    'tasks:write',
     'sla:view',
     'budget:view',
     'documents:view',
@@ -99,9 +115,12 @@ const ROLE_CAPABILITIES: Record<AppRole, Capability[]> = {
 }
 
 export const ROLE_ACCESS_COPY: Record<AppRole, string> = {
-  'Portfolio Director': 'Full portfolio, approvals, reports, and administration',
+  'Portfolio Director':
+    'System admin — create users, manage all projects/apps/teams, approvals, and full system access',
   'Project Manager': 'Assigned projects, tasks, milestones, risks, and documents',
-  'PMO Analyst': 'Read portfolio, export reports, view governance data',
+  Developer: 'Delivery work — tasks, tickets, and risks for assigned apps',
+  Business: 'Business stakeholder — tickets, status, approvals view, and reports for assigned apps',
+  'PMO Analyst': 'Read portfolio, export reports, collaborate on tickets for assigned apps',
   'Executive Viewer': 'Executive dashboard and portfolio reports only',
 }
 
@@ -116,7 +135,10 @@ export function hasCapability(role: AppRole, capability: Capability): boolean {
 export function mapPersonRoleToAppRole(personRole: string): AppRole {
   if (personRole === 'Portfolio Director') return 'Portfolio Director'
   if (personRole === 'Project Manager') return 'Project Manager'
-  if (personRole === 'PMO Analyst' || personRole === 'Business Analyst') return 'PMO Analyst'
+  if (personRole === 'Developer') return 'Developer'
+  if (personRole === 'Business') return 'Business'
+  if (personRole === 'PMO Analyst') return 'PMO Analyst'
+  if (personRole === 'Business Analyst') return 'Business'
   if (
     personRole === 'Executive Viewer' ||
     personRole.includes('Director') ||
@@ -124,13 +146,12 @@ export function mapPersonRoleToAppRole(personRole: string): AppRole {
   ) {
     return personRole === 'Portfolio Director' ? 'Portfolio Director' : 'Executive Viewer'
   }
-  // Delivery staff map to PM-equivalent read/write for demo personas
   if (
     ['Lead Developer', 'Frontend Engineer', 'QA Lead', 'Solution Architect', 'UX Designer'].includes(
       personRole,
     )
   ) {
-    return 'Project Manager'
+    return 'Developer'
   }
   return 'Executive Viewer'
 }
@@ -141,9 +162,12 @@ export const NAV_CAPABILITY: Record<string, Capability | null> = {
   portfolio: 'portfolio:view',
   projects: 'projects:view',
   manage: 'projects:write',
+  teams: 'projects:write',
+  appsCatalog: 'projects:view',
   roadmap: 'roadmap:view',
   gantt: 'gantt:view',
   tasks: 'tasks:write',
+  tickets: 'tasks:write',
   milestones: 'milestones:write',
   sla: 'sla:view',
   risks: 'risks:write',

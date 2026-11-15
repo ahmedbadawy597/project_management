@@ -50,6 +50,7 @@ const emptyState = (): DomainState => ({
   documents: [],
   activities: [],
   notifications: [],
+  apps: [],
 })
 
 describe('deriveHealth', () => {
@@ -135,6 +136,7 @@ describe('monthlyMilestoneCompletion', () => {
         status: 'Upcoming',
         dependencies: [],
         deliverables: [],
+        deliverablesAr: [],
       } satisfies Milestone,
     ]
     const rows = monthlyMilestoneCompletion(state)
@@ -157,6 +159,7 @@ describe('monthlyMilestoneCompletion', () => {
         status: 'Completed',
         dependencies: [],
         deliverables: [],
+        deliverablesAr: [],
       } satisfies Milestone,
     ]
     expect(monthlyMilestoneCompletion(state).find((r) => r.month === 'Jul')?.completed).toBe(1)

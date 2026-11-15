@@ -250,7 +250,7 @@ export function TaskBoard({ projectId }: { projectId?: string }) {
           <TabsTrigger value="calendar">{t('tasks.calendar')}</TabsTrigger>
         </TabsList>
         <TabsContent value="kanban">
-          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="kanban-scroll">
             {STATUSES.map((status) => (
               <div key={status} className="rounded-xl border border-border bg-bg/60 p-2">
                 <p className="mb-2 px-1 text-xs font-semibold text-muted">{t(`status.${status}`)}</p>

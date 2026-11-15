@@ -11,9 +11,11 @@ import { getPortfolioKpis } from '@/data/selectors'
 import { formatPercent } from '@/lib/utils'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { useDirection } from '@/hooks/useDirection'
 
 export function SlaPage() {
   const { t } = useTranslation()
+  const { isRtl } = useDirection()
   const { state, isLoading, isError, refetch } = useDomain()
 
   if (isLoading || !state) return <PageLoading />
@@ -40,7 +42,7 @@ export function SlaPage() {
         <strong>{t('sla.noticeTitle')}:</strong> {t('sla.noticeBody')}
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="kpi-grid-4 mb-6">
         <KPICard label={t('sla.plannedProgress')} value={formatPercent(kpis.overallPlannedProgress)} />
         <KPICard label={t('sla.actualProgress')} value={formatPercent(kpis.overallActualProgress)} tone="teal" />
         <KPICard
@@ -85,8 +87,8 @@ export function SlaPage() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={state.slas.map((s) => ({ name: s.reference, target: s.targetHours, consumed: s.consumedHours }))}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF1" />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} reversed={isRtl} />
+              <YAxis tick={{ fontSize: 11 }} orientation={isRtl ? 'right' : 'left'} />
               <Tooltip />
               <Bar dataKey="target" fill="#C5CEDB" />
               <Bar dataKey="consumed" fill="#3159A5" />

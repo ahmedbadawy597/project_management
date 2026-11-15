@@ -9,7 +9,14 @@ import type {
   TaskStatus,
   WbsItem,
 } from '@/data/types'
-import { api, queryKeys, type CreateProjectInput } from './endpoints'
+import {
+  api,
+  queryKeys,
+  type CreatePersonInput,
+  type CreateProjectInput,
+  type UpdatePersonInput,
+} from './endpoints'
+import { publishChatEvent } from '@/lib/chat-sync'
 
 export function useBootstrap(enabled = true) {
   return useQuery({
@@ -92,8 +99,13 @@ export function useActivities(projectId?: string) {
   })
 }
 
-export function useNotifications() {
-  return useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications })
+export function useNotifications(live = false) {
+  return useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: api.notifications,
+    refetchInterval: live ? 4000 : false,
+    refetchIntervalInBackground: live,
+  })
 }
 
 function invalidateDomain(qc: ReturnType<typeof useQueryClient>) {
@@ -139,7 +151,8 @@ export function useUpdateProject() {
 export function useUpsertApp() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (app: ProjectApp) => api.upsertApp(app),
+    mutationFn: (app: ProjectApp & { members?: import('./endpoints').AppMemberInput[] }) =>
+      api.upsertApp(app),
     onSuccess: () => invalidateDomain(qc),
   })
 }
@@ -148,6 +161,14 @@ export function useDeleteApp() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.deleteApp(id),
+    onSuccess: () => invalidateDomain(qc),
+  })
+}
+
+export function useReorderApps() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => api.reorderApps(orderedIds),
     onSuccess: () => invalidateDomain(qc),
   })
 }
@@ -246,5 +267,169 @@ export function useResetDemo() {
   return useMutation({
     mutationFn: () => api.resetDemo(),
     onSuccess: () => invalidateDomain(qc),
+  })
+}
+
+export function useCreatePerson() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreatePersonInput) => api.createPerson(input),
+    onSuccess: () => invalidateDomain(qc),
+  })
+}
+
+export function useUpdatePerson() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdatePersonInput }) =>
+      api.updatePerson(id, patch),
+    onSuccess: () => invalidateDomain(qc),
+  })
+}
+
+export function useProjectMembers(projectId?: string) {
+  return useQuery({
+    queryKey: ['project-members', projectId ?? ''],
+    queryFn: () => api.projectMembers(projectId!),
+    enabled: Boolean(projectId),
+  })
+}
+
+export function useSetProjectMembers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, personIds }: { projectId: string; personIds: string[] }) =>
+      api.setProjectMembers(projectId, personIds),
+    onSuccess: (_data, vars) => {
+      invalidateDomain(qc)
+      void qc.invalidateQueries({ queryKey: ['project-members', vars.projectId] })
+    },
+  })
+}
+
+export function useAppAccess(appId?: string) {
+  return useQuery({
+    queryKey: ['app-access', appId ?? ''],
+    queryFn: () => api.appAccess(appId!),
+    enabled: Boolean(appId),
+  })
+}
+
+export function useSetAppAccess() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ appId, personIds }: { appId: string; personIds: string[] }) =>
+      api.setAppAccess(appId, personIds),
+    onSuccess: (_data, vars) => {
+      invalidateDomain(qc)
+      void qc.invalidateQueries({ queryKey: ['app-access', vars.appId] })
+      void qc.invalidateQueries({ queryKey: ['app-members', vars.appId] })
+    },
+  })
+}
+
+export function useAppMembers(appId?: string) {
+  return useQuery({
+    queryKey: ['app-members', appId ?? ''],
+    queryFn: () => api.appMembers(appId!),
+    enabled: Boolean(appId),
+  })
+}
+
+export function useSetAppMembers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      appId,
+      members,
+    }: {
+      appId: string
+      members: import('./endpoints').AppMemberInput[]
+    }) => api.setAppMembers(appId, members),
+    onSuccess: (_data, vars) => {
+      invalidateDomain(qc)
+      void qc.invalidateQueries({ queryKey: ['app-members', vars.appId] })
+    },
+  })
+}
+
+export function useTickets(filters: import('./endpoints').TicketFilters = {}, live = false) {
+  return useQuery({
+    queryKey: ['tickets', filters],
+    queryFn: () => api.tickets(filters),
+    refetchInterval: live ? 2000 : false,
+    refetchIntervalInBackground: live,
+  })
+}
+
+export function useTicket(id?: string, live = false) {
+  return useQuery({
+    queryKey: ['ticket', id ?? ''],
+    queryFn: () => api.ticket(id!),
+    enabled: Boolean(id),
+    refetchInterval: live && id ? 1500 : false,
+    refetchIntervalInBackground: live,
+  })
+}
+
+export function useCreateTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: import('./endpoints').CreateTicketInput) => api.createTicket(input),
+    onSuccess: (created) => {
+      void qc.invalidateQueries({ queryKey: ['tickets'] })
+      invalidateDomain(qc)
+      publishChatEvent({
+        type: 'ticket-created',
+        ticketId: created.id,
+        title: created.title,
+        titleAr: created.titleAr,
+        authorId: created.reporterId,
+        at: created.createdAt,
+      })
+    },
+  })
+}
+
+export function useUpdateTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<import('@/data/types').Ticket> }) =>
+      api.updateTicket(id, patch),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['tickets'] })
+      void qc.invalidateQueries({ queryKey: ['ticket', vars.id] })
+    },
+  })
+}
+
+export function useAddTicketComment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: string }) => api.addTicketComment(id, body),
+    onSuccess: (ticket, vars) => {
+      void qc.setQueryData(['ticket', vars.id], ticket)
+      void qc.invalidateQueries({ queryKey: ['ticket', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['tickets'] })
+      void qc.invalidateQueries({ queryKey: ['notifications'] })
+      const last = ticket.comments?.[ticket.comments.length - 1]
+      if (!last) return
+      const bootstrap = qc.getQueryData(queryKeys.bootstrap) as
+        | { people?: Array<{ id: string; name: string; nameAr: string }> }
+        | undefined
+      const author = bootstrap?.people?.find((p) => p.id === last.authorId)
+      publishChatEvent({
+        type: 'ticket-comment',
+        ticketId: ticket.id,
+        commentId: last.id,
+        authorId: last.authorId,
+        authorName: author?.name ?? 'Team',
+        authorNameAr: author?.nameAr ?? author?.name ?? 'الفريق',
+        body: last.body,
+        title: ticket.title,
+        titleAr: ticket.titleAr,
+        at: last.createdAt,
+      })
+    },
   })
 }

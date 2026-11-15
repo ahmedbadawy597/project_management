@@ -20,7 +20,7 @@ export function ApprovalsPage() {
   return (
     <div>
       <PageHeader title={t('approvals.title')} description={t('approvals.subtitle')} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="kpi-grid-4 mb-6">
         <KPICard label={t('approvals.pending')} value={pending} tone="warning" />
         <KPICard label={t('approvals.approved')} value={approved} tone="success" />
         <KPICard label={t('approvals.rejected')} value={rejected} tone="danger" />

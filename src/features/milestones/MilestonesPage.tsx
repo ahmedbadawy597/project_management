@@ -8,12 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useDomain } from '@/api/useDomain'
+import { useAccessScope } from '@/hooks/useAccessScope'
 import { PageError, PageLoading } from '@/components/shared/PageStates'
 import { cn, formatDate } from '@/lib/utils'
 import type { MilestoneStatus } from '@/data/types'
 
 export function MilestonesPage() {
   const { t } = useTranslation()
+  const { isScoped } = useAccessScope()
   const { state, language, isLoading, isError, refetch } = useDomain()
   const [month, setMonth] = useState('2026-11')
 
@@ -43,8 +45,11 @@ export function MilestonesPage() {
 
   return (
     <div>
-      <PageHeader title={t('milestones.title')} description={t('milestones.subtitle')} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <PageHeader
+        title={t('milestones.title')}
+        description={t(isScoped ? 'milestones.subtitleJoined' : 'milestones.subtitle')}
+      />
+      <div className="kpi-grid mb-6">
         <KPICard label={t('milestones.kpiTotal')} value={total} icon={Flag} delay={0} />
         <KPICard label={t('milestones.kpiCompleted')} value={completed} tone="success" icon={CheckCircle2} delay={40} />
         <KPICard label={t('milestones.kpiUpcoming')} value={upcoming} tone="info" icon={Clock3} delay={80} />

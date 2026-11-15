@@ -28,7 +28,7 @@ export function ChartCard({
         </div>
         {action}
       </CardHeader>
-      <CardContent className="h-[280px] pt-1">{children}</CardContent>
+      <CardContent className="h-[220px] pt-1 sm:h-[260px] lg:h-[280px]">{children}</CardContent>
     </Card>
   )
 }

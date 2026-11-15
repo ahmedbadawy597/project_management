@@ -4,12 +4,14 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { PageError, PageLoading } from '@/components/shared/PageStates'
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from '@/api/hooks'
+import { useAccessScope } from '@/hooks/useAccessScope'
 import { useUiStore } from '@/data/ui-store'
 import { cn, formatDate } from '@/lib/utils'
 
 export function NotificationsPage() {
   const { t } = useTranslation()
   const language = useUiStore((s) => s.language)
+  const { isScoped } = useAccessScope()
   const query = useNotifications()
   const markRead = useMarkNotificationRead()
   const markAll = useMarkAllNotificationsRead()
@@ -24,7 +26,7 @@ export function NotificationsPage() {
     <div>
       <PageHeader
         title={t('notifications.title')}
-        description={t('notifications.subtitle')}
+        description={t(isScoped ? 'notifications.subtitleJoined' : 'notifications.subtitle')}
         actions={
           <Button variant="outline" onClick={() => markAll.mutate()}>
             {t('common.markAllRead')}

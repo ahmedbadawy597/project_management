@@ -1,6 +1,7 @@
 import type {
   Approval,
   ApprovalStatus,
+  AppMember,
   BudgetTransaction,
   DocumentItem,
   Milestone,
@@ -13,6 +14,7 @@ import type {
   RiskLevel,
   SlaRecord,
   TaskStatus,
+  Ticket,
   WbsItem,
   ActivityItem,
 } from '@/data/types'
@@ -43,8 +45,10 @@ export interface AuthUser {
   name: string
   nameAr: string
   email: string
+  username: string
   role: AppRole
   capabilities: Capability[]
+  mustChangePassword: boolean
 }
 
 export interface BootstrapState {
@@ -60,13 +64,65 @@ export interface BootstrapState {
   activities: ActivityItem[]
   notifications: NotificationItem[]
   apps: ProjectApp[]
+  /** projectId → personIds */
+  projectMembers?: Record<string, string[]>
+  /** appId → members with roles */
+  appMembers?: Record<string, Array<{ personId: string; role: string }>>
+  /** @deprecated prefer appMembers */
+  appAccess?: Record<string, string[]>
 }
 
+export type AppMemberInput = { personId: string; role: string }
+
+export type CreateTicketInput = {
+  projectId: string
+  appId?: string
+  type: string
+  status?: string
+  priority?: string
+  urgency?: string
+  tags?: string[]
+  title: string
+  titleAr?: string
+  body?: string
+  bodyAr?: string
+  assigneeId?: string
+}
+
+export type TicketFilters = {
+  projectId?: string
+  appId?: string
+  assigneeId?: string
+  status?: string
+  tag?: string
+  urgency?: string
+}
+
+export type CreatePersonInput = {
+  name: string
+  nameAr?: string
+  email: string
+  department?: string
+  role?: string
+  appRole?: AppRole
+  allocation?: number
+  availability?: number
+  active?: boolean
+  projectIds?: string[]
+}
+
+export type UpdatePersonInput = Partial<CreatePersonInput>
+
 export const api = {
-  login: (personaId: string) =>
+  login: (username: string, password: string) =>
     apiFetch<{ token: string; user: AuthUser }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ personaId }),
+      body: JSON.stringify({ username, password }),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch<AuthUser>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
     }),
   me: () => apiFetch<AuthUser>('/auth/me'),
   personas: () => apiFetch<Persona[]>('/auth/personas'),
@@ -80,13 +136,92 @@ export const api = {
     apiFetch<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   apps: (projectId?: string) =>
     apiFetch<ProjectApp[]>(projectId ? `/apps?projectId=${projectId}` : '/apps'),
-  upsertApp: (app: ProjectApp) =>
+  upsertApp: (app: ProjectApp & { members?: AppMemberInput[] }) =>
     apiFetch<ProjectApp>(app.id ? `/apps/${app.id}` : '/apps', {
       method: app.id ? 'PUT' : 'POST',
       body: JSON.stringify(app),
     }),
   deleteApp: (id: string) => apiFetch<void>(`/apps/${id}`, { method: 'DELETE' }),
+  reorderApps: (orderedIds: string[]) =>
+    apiFetch<ProjectApp[]>('/apps/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ orderedIds }),
+    }),
+  appMembers: (appId: string) =>
+    apiFetch<{
+      appId: string
+      projectId: string
+      ownerId?: string | null
+      members: AppMember[]
+    }>(`/apps/${appId}/members`),
+  setAppMembers: (appId: string, members: AppMemberInput[]) =>
+    apiFetch<{
+      appId: string
+      projectId: string
+      ownerId?: string | null
+      members: AppMember[]
+    }>(`/apps/${appId}/members`, {
+      method: 'PUT',
+      body: JSON.stringify({ members }),
+    }),
+  tickets: (filters: TicketFilters = {}) => {
+    const qs = new URLSearchParams()
+    if (filters.projectId) qs.set('projectId', filters.projectId)
+    if (filters.appId) qs.set('appId', filters.appId)
+    if (filters.assigneeId) qs.set('assigneeId', filters.assigneeId)
+    if (filters.status) qs.set('status', filters.status)
+    if (filters.tag) qs.set('tag', filters.tag)
+    if (filters.urgency) qs.set('urgency', filters.urgency)
+    const q = qs.toString()
+    return apiFetch<Ticket[]>(q ? `/tickets?${q}` : '/tickets')
+  },
+  ticket: (id: string) => apiFetch<Ticket>(`/tickets/${id}`),
+  createTicket: (input: CreateTicketInput) =>
+    apiFetch<Ticket>('/tickets', { method: 'POST', body: JSON.stringify(input) }),
+  updateTicket: (id: string, patch: Partial<Ticket>) =>
+    apiFetch<Ticket>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  addTicketComment: (id: string, body: string) =>
+    apiFetch<Ticket>(`/tickets/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
   people: () => apiFetch<Person[]>('/people'),
+  createPerson: (input: CreatePersonInput) =>
+    apiFetch<Person>('/people', { method: 'POST', body: JSON.stringify(input) }),
+  updatePerson: (id: string, patch: UpdatePersonInput) =>
+    apiFetch<Person>(`/people/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  projectMembers: (projectId: string) =>
+    apiFetch<{
+      projectId: string
+      managerId: string
+      memberIds: string[]
+      members: Array<{
+        personId: string
+        name: string
+        nameAr: string
+        email: string
+        role: string
+        appRole: string
+      }>
+    }>(`/projects/${projectId}/members`),
+  setProjectMembers: (projectId: string, personIds: string[]) =>
+    apiFetch<{ memberIds: string[] }>(`/projects/${projectId}/members`, {
+      method: 'PUT',
+      body: JSON.stringify({ personIds }),
+    }),
+  /** @deprecated use appMembers */
+  appAccess: (appId: string) =>
+    api.appMembers(appId).then((r) => ({
+      appId: r.appId,
+      projectId: r.projectId,
+      personIds: r.members.map((m) => m.personId),
+    })),
+  /** @deprecated use setAppMembers */
+  setAppAccess: (appId: string, personIds: string[]) =>
+    api.setAppMembers(
+      appId,
+      personIds.map((personId) => ({ personId, role: 'Contributor' })),
+    ).then((r) => ({ personIds: r.members.map((m) => m.personId) })),
   wbs: (projectId?: string) =>
     apiFetch<WbsItem[]>(projectId ? `/wbs?projectId=${projectId}` : '/wbs'),
   upsertTask: (task: WbsItem) =>

@@ -84,19 +84,19 @@ function RoadmapRow({
           <div
             key={q.at}
             className="pointer-events-none absolute inset-y-0 w-px bg-border/70"
-            style={{ left: `${pct(q.at)}%` }}
+            style={{ insetInlineStart: `${pct(q.at)}%` }}
           />
         ))}
         {/* today */}
         <div
           className="pointer-events-none absolute inset-y-0 z-10 w-px bg-danger/70"
-          style={{ left: `${todayPct}%` }}
+          style={{ insetInlineStart: `${todayPct}%` }}
         />
         {/* planned end tick when slipped */}
         {slipped && (
           <div
             className="pointer-events-none absolute top-3 bottom-3 z-10 w-px border-e border-dashed border-warning"
-            style={{ left: `${plannedEndPct}%` }}
+            style={{ insetInlineStart: `${plannedEndPct}%` }}
             title={`Plan end ${formatDate(project.plannedEnd)}`}
           />
         )}
@@ -108,7 +108,7 @@ function RoadmapRow({
             'ring-1 ring-black/5 group-hover:ring-primary/40',
             barTone(project.status),
           )}
-          style={{ left: `${startPct}%`, width: `${width}%` }}
+          style={{ insetInlineStart: `${startPct}%`, width: `${width}%` }}
           title={`${formatDate(project.plannedStart)} → ${formatDate(project.forecastEnd)} · ${formatPercent(project.actualProgress)}`}
         >
           <div
@@ -227,7 +227,7 @@ export function RoadmapPage() {
               <span
                 key={q.at}
                 className="absolute top-1/2 -translate-y-1/2 text-[10px] font-medium tabular-nums text-muted"
-                style={{ left: `${pct(q.at)}%`, transform: 'translate(-0%, -50%)' }}
+                style={{ insetInlineStart: `${pct(q.at)}%` }}
               >
                 <span className="ms-1">{q.label}</span>
               </span>

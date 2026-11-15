@@ -26,5 +26,6 @@ export function RequireCapability({
       />
     )
   }
-  return <Navigate to="/executive" replace />
+  // Land on projects hub — every authenticated role can view projects (scoped by membership).
+  return <Navigate to="/projects" replace />
 }

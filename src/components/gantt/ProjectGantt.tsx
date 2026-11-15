@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Diamond } from 'lucide-react'
+import { RtlIcon } from '@/components/shared/RtlIcon'
 import { useBootstrap } from '@/api/hooks'
 import { useUiStore } from '@/data/ui-store'
 import type { WbsItem } from '@/data/types'
@@ -308,9 +309,9 @@ export function ProjectGantt({
       </div>
 
       {/* Chart */}
-      <div className="flex min-h-[420px]">
+      <div className="flex min-h-[320px] flex-col md:min-h-[420px] md:flex-row">
         {/* Task list */}
-        <div className="w-[min(320px,42vw)] shrink-0 border-e border-border">
+        <div className="max-h-[220px] w-full shrink-0 overflow-y-auto border-b border-border md:max-h-none md:w-[min(320px,42vw)] md:overflow-visible md:border-b-0 md:border-e">
           <div className="flex h-10 items-center border-b border-border bg-bg px-3 text-[11px] font-semibold uppercase tracking-wide text-muted">
             {t('gantt.workItem')}
           </div>
@@ -350,7 +351,7 @@ export function ProjectGantt({
                       }}
                     >
                       {collapsed[item.id] ? (
-                        <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
+                        <RtlIcon icon={ChevronRight} className="h-3.5 w-3.5" />
                       ) : (
                         <ChevronDown className="h-3.5 w-3.5" />
                       )}
@@ -375,14 +376,14 @@ export function ProjectGantt({
         </div>
 
         {/* Timeline */}
-        <div ref={scrollerRef} className="min-w-0 flex-1 overflow-x-auto">
+        <div ref={scrollerRef} className="edge-fade-x min-w-0 flex-1 overflow-x-auto">
           <div style={{ width: timelineWidth }} className="relative">
             <div className="sticky top-0 z-20 flex h-10 border-b border-border bg-bg">
               {headers.map((h, i) => (
                 <div
                   key={`${h.label}-${i}`}
                   className="absolute top-0 flex h-10 items-center border-e border-border/60 px-1.5 text-[10px] font-medium tabular-nums text-muted"
-                  style={{ left: h.x, width: h.width }}
+                  style={{ insetInlineStart: h.x, width: h.width }}
                 >
                   {h.label}
                 </div>
@@ -395,14 +396,14 @@ export function ProjectGantt({
                 <div
                   key={`g-${i}`}
                   className="pointer-events-none absolute inset-y-0 border-s border-border/40"
-                  style={{ left: h.x }}
+                  style={{ insetInlineStart: h.x }}
                 />
               ))}
               {/* today */}
               {todayX >= 0 && todayX <= timelineWidth && (
                 <div
                   className="pointer-events-none absolute inset-y-0 z-10 w-px bg-danger"
-                  style={{ left: todayX }}
+                  style={{ insetInlineStart: todayX }}
                 />
               )}
 
@@ -418,14 +419,14 @@ export function ProjectGantt({
                     {showBaseline && !isMilestone && (
                       <div
                         className="absolute top-[28px] h-1.5 rounded-sm bg-navy/20"
-                        style={{ left: blLeft, width: blWidth }}
+                        style={{ insetInlineStart: blLeft, width: blWidth }}
                       />
                     )}
                     {isMilestone ? (
                       <button
                         type="button"
-                        className="absolute top-1/2 z-[5] -translate-x-1/2 -translate-y-1/2 text-navy"
-                        style={{ left: left }}
+                        className="absolute top-1/2 z-[5] -translate-x-1/2 -translate-y-1/2 text-navy rtl:translate-x-1/2"
+                        style={{ insetInlineStart: left }}
                         onClick={() => setSelected(item)}
                         title={language === 'ar' ? item.nameAr : item.name}
                       >
@@ -441,7 +442,7 @@ export function ProjectGantt({
                           barColor(item),
                           item.type === 'phase' ? 'h-7' : 'h-6',
                         )}
-                        style={{ left, width }}
+                        style={{ insetInlineStart: left, width }}
                         onClick={() => setSelected(item)}
                         title={`${formatDate(item.start)} → ${formatDate(item.end)}`}
                       >

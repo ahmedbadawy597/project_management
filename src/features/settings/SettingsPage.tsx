@@ -37,7 +37,7 @@ export function SettingsPage() {
                 void i18n.changeLanguage('en')
               }}
             >
-              English (LTR)
+              English
             </Button>
             <Button
               variant={language === 'ar' ? 'default' : 'outline'}
@@ -46,7 +46,7 @@ export function SettingsPage() {
                 void i18n.changeLanguage('ar')
               }}
             >
-              العربية (RTL)
+              العربية
             </Button>
           </CardContent>
         </Card>
@@ -106,15 +106,6 @@ export function SettingsPage() {
             >
               {t('common.resetDemo')}
             </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.help')}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted">
-            <p>{t('settings.helpBody')}</p>
-            <p className="mt-2">Currency: SAR · Portfolio size: 12 applications · 4 active / 8 planned.</p>
           </CardContent>
         </Card>
       </div>

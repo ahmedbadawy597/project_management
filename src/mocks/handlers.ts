@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import type {
   ApprovalStatus,
   Milestone,
+  Person,
   Project,
   ProjectApp,
   ProjectStatus,
@@ -13,20 +14,40 @@ import type {
 import { PERSONAS, personaById } from '@/auth/personas'
 import { capabilitiesForRole } from '@/auth/permissions'
 import {
+  canAccessApp,
+  canAccessProject,
+  canAccessTicket,
+  filterByProjectScope,
+  resolveAccessScope,
+} from '@/auth/access-scope'
+import type { AppRole } from '@/auth/permissions'
+import {
   addDocument,
+  addTicketComment,
   addTransaction,
+  createPerson,
   createProject,
+  createTicket,
   decideApproval,
   deleteApp,
   deleteTask,
   getDb,
   getPerson,
+  getTicket,
+  listAppMembers,
+  listTickets,
   markAllNotificationsRead,
   markNotificationRead,
   resetDb,
-  snapshot,
+  scopedSnapshot,
+  setAppAccess,
+  setAppMembers,
+  setProjectMembers,
+  updatePerson,
   updateProject,
   updateTaskStatus,
+  updateTicket,
+  reorderApps,
   upsertApp,
   upsertMilestone,
   upsertRisk,
@@ -59,49 +80,103 @@ function bearerPersona(request: Request) {
   return personaById(parts[1])
 }
 
+function requestScope(request: Request) {
+  const persona = bearerPersona(request)
+  const personId = bearerUserId(request)
+  if (!persona || !personId) return null
+  const db = getDb()
+  return {
+    persona,
+    personId,
+    role: persona.role as AppRole,
+    scope: resolveAccessScope(personId, persona.role, db),
+  }
+}
+
+const MOCK_TEMP_PASSWORD = 'Awqaf@2026'
+const mockPasswords = new Map<string, string>()
+const mustChangeByPerson = new Map<string, boolean>()
+
+function authUserFromPerson(personId: string) {
+  const persona = PERSONAS.find((p) => p.personId === personId)
+  const person = getPerson(personId)
+  if (!persona || !person) return null
+  const mustChangePassword = mustChangeByPerson.get(personId) ?? true
+  return {
+    id: persona.personId,
+    personaId: persona.id,
+    name: person.name,
+    nameAr: person.nameAr,
+    email: person.email,
+    username: person.email.split('@')[0] ?? persona.id,
+    role: persona.role,
+    capabilities: capabilitiesForRole(persona.role),
+    mustChangePassword,
+  }
+}
+
+function findPersonByLogin(login: string) {
+  return getDb().people.find(
+    (p) => p.email.toLowerCase() === login || p.email.split('@')[0]?.toLowerCase() === login,
+  )
+}
+
 export const handlers = [
   http.post('/api/auth/login', async ({ request }) => {
-    const body = (await request.json()) as { personaId?: string }
-    const persona = personaById(body.personaId ?? '')
-    if (!persona) {
-      return HttpResponse.json({ message: 'Unknown persona' }, { status: 400 })
+    const body = (await request.json()) as { username?: string; password?: string }
+    const login = (body.username ?? '').trim().toLowerCase()
+    const password = body.password ?? ''
+    if (!login || !password) {
+      return HttpResponse.json({ message: 'Username and password are required' }, { status: 400 })
     }
-    const person = getPerson(persona.personId)
+    const person = findPersonByLogin(login)
+    if (!person) {
+      return HttpResponse.json({ message: 'Invalid username or password' }, { status: 401 })
+    }
+    const expected = mockPasswords.get(person.id) ?? MOCK_TEMP_PASSWORD
+    if (password !== expected) {
+      return HttpResponse.json({ message: 'Invalid username or password' }, { status: 401 })
+    }
+    const persona = PERSONAS.find((p) => p.personId === person.id)
+    if (!persona) {
+      return HttpResponse.json({ message: 'Invalid username or password' }, { status: 401 })
+    }
+    if (!mustChangeByPerson.has(person.id)) mustChangeByPerson.set(person.id, true)
+    const user = authUserFromPerson(person.id)
     const token = `mock.${persona.id}.${persona.personId}`
-    return HttpResponse.json({
-      token,
-      user: {
-        id: persona.personId,
-        personaId: persona.id,
-        name: person?.name ?? persona.label,
-        nameAr: person?.nameAr ?? persona.labelAr,
-        email: person?.email ?? '',
-        role: persona.role,
-        capabilities: capabilitiesForRole(persona.role),
-      },
-    })
+    return HttpResponse.json({ token, user })
+  }),
+
+  http.post('/api/auth/change-password', async ({ request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    const body = (await request.json()) as { currentPassword?: string; newPassword?: string }
+    const expected = mockPasswords.get(persona.personId) ?? MOCK_TEMP_PASSWORD
+    if (body.currentPassword !== expected) {
+      return HttpResponse.json({ message: 'Current password is incorrect' }, { status: 400 })
+    }
+    if (!body.newPassword || body.newPassword.length < 8) {
+      return HttpResponse.json({ message: 'New password must be at least 8 characters' }, { status: 400 })
+    }
+    mockPasswords.set(persona.personId, body.newPassword)
+    mustChangeByPerson.set(persona.personId, false)
+    return HttpResponse.json(authUserFromPerson(persona.personId))
   }),
 
   http.get('/api/auth/me', ({ request }) => {
     const persona = bearerPersona(request)
     if (!persona) return unauthorized()
-    const person = getPerson(persona.personId)
-    return HttpResponse.json({
-      id: persona.personId,
-      personaId: persona.id,
-      name: person?.name ?? persona.label,
-      nameAr: person?.nameAr ?? persona.labelAr,
-      email: person?.email ?? '',
-      role: persona.role,
-      capabilities: capabilitiesForRole(persona.role),
-    })
+    const user = authUserFromPerson(persona.personId)
+    if (!user) return unauthorized()
+    return HttpResponse.json(user)
   }),
 
   http.get('/api/auth/personas', () => HttpResponse.json(PERSONAS)),
 
   http.get('/api/bootstrap', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
-    return HttpResponse.json(snapshot())
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    return HttpResponse.json(scopedSnapshot(ctx.personId, ctx.role))
   }),
 
   http.post('/api/demo/reset', ({ request }) => {
@@ -110,14 +185,19 @@ export const handlers = [
   }),
 
   http.get('/api/projects', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
-    return HttpResponse.json(getDb().projects)
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    const rows = getDb().projects.filter((p) => canAccessProject(ctx.scope, p.id))
+    return HttpResponse.json(rows)
   }),
 
   http.get('/api/projects/:id', ({ params, request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const project = getDb().projects.find((p) => p.id === params.id)
-    if (!project) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    if (!project || !canAccessProject(ctx.scope, project.id)) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    }
     return HttpResponse.json(project)
   }),
 
@@ -186,10 +266,11 @@ export const handlers = [
   }),
 
   http.get('/api/apps', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().apps
+    let rows = getDb().apps.filter((a) => canAccessApp(ctx.scope, a.id))
     if (projectId) rows = rows.filter((a) => a.projectId === projectId)
     return HttpResponse.json(rows)
   }),
@@ -214,8 +295,23 @@ export const handlers = [
       status: body.status ?? 'Planned',
       plannedStart: body.plannedStart,
       plannedEnd: body.plannedEnd,
+      url: body.url ?? '',
+      userCount: body.userCount ?? 0,
+      readiness: body.readiness ?? 0,
+      iconColor: body.iconColor ?? '#0F766E',
+      publishStatus: body.publishStatus ?? 'Draft',
+      featured: Boolean(body.featured),
+      sortOrder: body.sortOrder ?? getDb().apps.length + 1,
     }
     return HttpResponse.json(upsertApp(app), { status: 201 })
+  }),
+
+  http.put('/api/apps/reorder', async ({ request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('projects:write')) return forbidden()
+    const body = (await request.json()) as { orderedIds: string[] }
+    return HttpResponse.json(reorderApps(body.orderedIds ?? []))
   }),
 
   http.put('/api/apps/:id', async ({ params, request }) => {
@@ -242,11 +338,310 @@ export const handlers = [
     return HttpResponse.json(getDb().people)
   }),
 
-  http.get('/api/wbs', ({ request }) => {
+  http.post('/api/people', async ({ request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('admin:view')) return forbidden()
+    const body = (await request.json()) as {
+      name: string
+      nameAr?: string
+      email: string
+      department?: string
+      role?: string
+      appRole?: string
+      active?: boolean
+      allocation?: number
+      availability?: number
+      projectIds?: string[]
+    }
+    if (!body.name?.trim() || !body.email?.trim()) {
+      return HttpResponse.json({ message: 'Name and email are required' }, { status: 400 })
+    }
+    const projectIds = [...new Set((body.projectIds ?? []).filter(Boolean))]
+    const person = createPerson({
+      id: `p-${Date.now()}`,
+      name: body.name.trim(),
+      nameAr: (body.nameAr || body.name).trim(),
+      email: body.email.trim().toLowerCase(),
+      department: body.department?.trim() || 'General',
+      role: body.role?.trim() || body.appRole || 'Executive Viewer',
+      appRole: body.appRole || body.role || 'Executive Viewer',
+      allocation: body.allocation ?? 100,
+      availability: body.availability ?? 20,
+      active: body.active ?? true,
+      projectIds,
+    })
+    for (const projectId of projectIds) {
+      const current = getDb().projectMembers[projectId] ?? []
+      if (!current.includes(person.id)) {
+        setProjectMembers(projectId, [...current, person.id])
+      }
+    }
+    return HttpResponse.json(person, { status: 201 })
+  }),
+
+  http.patch('/api/people/:id', async ({ params, request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('admin:view')) return forbidden()
+    const patch = (await request.json()) as Partial<Person>
+    const id = String(params.id)
+    const prev = getPerson(id)
+    const updated = updatePerson(id, patch)
+    if (!updated) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    if (Array.isArray(patch.projectIds) && prev) {
+      const nextIds = [...new Set(patch.projectIds)]
+      for (const [projectId, members] of Object.entries(getDb().projectMembers)) {
+        if (members.includes(id) && !nextIds.includes(projectId)) {
+          setProjectMembers(
+            projectId,
+            members.filter((m) => m !== id),
+          )
+        }
+      }
+      for (const projectId of nextIds) {
+        const current = getDb().projectMembers[projectId] ?? []
+        if (!current.includes(id)) setProjectMembers(projectId, [...current, id])
+      }
+    }
+    return HttpResponse.json(updated)
+  }),
+
+  http.get('/api/projects/:id/members', ({ params, request }) => {
     if (!bearerUserId(request)) return unauthorized()
+    const project = getDb().projects.find((p) => p.id === params.id)
+    if (!project) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    const memberIds = getDb().projectMembers[String(params.id)] ?? []
+    const members = memberIds
+      .map((id) => getDb().people.find((p) => p.id === id))
+      .filter(Boolean)
+      .map((p) => ({
+        personId: p!.id,
+        name: p!.name,
+        nameAr: p!.nameAr,
+        email: p!.email,
+        role: p!.role,
+        appRole: p!.appRole ?? p!.role,
+      }))
+    return HttpResponse.json({
+      projectId: project.id,
+      managerId: project.managerId,
+      memberIds,
+      members,
+    })
+  }),
+
+  http.put('/api/projects/:id/members', async ({ params, request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('projects:write')) return forbidden()
+    const body = (await request.json()) as { personIds: string[] }
+    const project = getDb().projects.find((p) => p.id === params.id)
+    if (!project) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    const memberIds = setProjectMembers(String(params.id), body.personIds ?? [])
+    return HttpResponse.json({
+      projectId: project.id,
+      managerId: project.managerId,
+      memberIds,
+      members: memberIds.map((id) => {
+        const p = getPerson(id)!
+        return {
+          personId: p.id,
+          name: p.name,
+          nameAr: p.nameAr,
+          email: p.email,
+          role: p.role,
+          appRole: p.appRole ?? p.role,
+        }
+      }),
+    })
+  }),
+
+  http.get('/api/apps/:id/members', ({ params, request }) => {
+    if (!bearerUserId(request)) return unauthorized()
+    const app = getDb().apps.find((a) => a.id === params.id)
+    if (!app) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    const members = listAppMembers(String(params.id)).map((m) => {
+      const p = getPerson(m.personId)
+      return {
+        personId: m.personId,
+        role: m.role,
+        name: p?.name,
+        nameAr: p?.nameAr,
+        email: p?.email,
+      }
+    })
+    return HttpResponse.json({
+      appId: app.id,
+      projectId: app.projectId,
+      ownerId: app.ownerId,
+      members,
+    })
+  }),
+
+  http.put('/api/apps/:id/members', async ({ params, request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('projects:write')) return forbidden()
+    const body = (await request.json()) as {
+      members: Array<{ personId: string; role: string }>
+    }
+    const app = getDb().apps.find((a) => a.id === params.id)
+    if (!app) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    const members = setAppMembers(String(params.id), body.members ?? []).map((m) => {
+      const p = getPerson(m.personId)
+      return {
+        personId: m.personId,
+        role: m.role,
+        name: p?.name,
+        nameAr: p?.nameAr,
+        email: p?.email,
+      }
+    })
+    return HttpResponse.json({
+      appId: app.id,
+      projectId: app.projectId,
+      ownerId: getDb().apps.find((a) => a.id === params.id)?.ownerId,
+      members,
+    })
+  }),
+
+  http.get('/api/apps/:id/access', ({ params, request }) => {
+    if (!bearerUserId(request)) return unauthorized()
+    const app = getDb().apps.find((a) => a.id === params.id)
+    if (!app) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    const personIds = (getDb().appAccess[String(params.id)] ?? []).length
+      ? getDb().appAccess[String(params.id)]
+      : listAppMembers(String(params.id)).map((m) => m.personId)
+    return HttpResponse.json({
+      appId: app.id,
+      projectId: app.projectId,
+      personIds,
+      people: personIds.map((id) => {
+        const p = getPerson(id)!
+        return { personId: p.id, name: p.name, nameAr: p.nameAr, email: p.email }
+      }),
+    })
+  }),
+
+  http.put('/api/apps/:id/access', async ({ params, request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('projects:write')) return forbidden()
+    const body = (await request.json()) as { personIds: string[] }
+    const app = getDb().apps.find((a) => a.id === params.id)
+    if (!app) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    const personIds = setAppAccess(String(params.id), body.personIds ?? [])
+    return HttpResponse.json({
+      appId: app.id,
+      projectId: app.projectId,
+      personIds,
+      people: personIds.map((id) => {
+        const p = getPerson(id)!
+        return { personId: p.id, name: p.name, nameAr: p.nameAr, email: p.email }
+      }),
+    })
+  }),
+
+  http.get('/api/tickets', ({ request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    if (!capabilitiesForRole(ctx.role).includes('tasks:write')) return forbidden()
+    const url = new URL(request.url)
+    const rows = listTickets({
+      projectId: url.searchParams.get('projectId'),
+      appId: url.searchParams.get('appId'),
+      assigneeId: url.searchParams.get('assigneeId'),
+      status: url.searchParams.get('status'),
+      tag: url.searchParams.get('tag'),
+      urgency: url.searchParams.get('urgency'),
+    }).filter((t) => canAccessTicket(ctx.scope, t))
+    return HttpResponse.json(rows)
+  }),
+
+  http.get('/api/tickets/:id', ({ params, request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    if (!capabilitiesForRole(ctx.role).includes('tasks:write')) return forbidden()
+    const ticket = getTicket(String(params.id))
+    if (!ticket || !canAccessTicket(ctx.scope, ticket)) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    }
+    return HttpResponse.json(ticket)
+  }),
+
+  http.post('/api/tickets', async ({ request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    if (!capabilitiesForRole(ctx.role).includes('tasks:write')) return forbidden()
+    const body = (await request.json()) as {
+      projectId: string
+      appId?: string
+      type: string
+      status?: string
+      priority?: string
+      urgency?: string
+      tags?: string[]
+      title: string
+      titleAr?: string
+      body?: string
+      bodyAr?: string
+      assigneeId?: string
+    }
+    if (!canAccessProject(ctx.scope, body.projectId)) return forbidden('Not a member of this project')
+    if (body.appId && !canAccessApp(ctx.scope, body.appId)) return forbidden('Not a member of this app')
+    const ticket = createTicket({
+      projectId: body.projectId,
+      appId: body.appId,
+      type: body.type || 'Task',
+      status: body.status ?? 'Open',
+      priority: body.priority ?? 'Medium',
+      urgency: body.urgency ?? 'Normal',
+      tags: body.tags ?? [],
+      title: body.title,
+      titleAr: body.titleAr || body.title,
+      body: body.body ?? '',
+      bodyAr: body.bodyAr ?? '',
+      reporterId: ctx.personId,
+      assigneeId: body.assigneeId,
+    })
+    return HttpResponse.json(ticket, { status: 201 })
+  }),
+
+  http.patch('/api/tickets/:id', async ({ params, request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    if (!capabilitiesForRole(ctx.role).includes('tasks:write')) return forbidden()
+    const existing = getTicket(String(params.id))
+    if (!existing || !canAccessTicket(ctx.scope, existing)) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    }
+    const body = (await request.json()) as Partial<import('@/data/types').Ticket>
+    const updated = updateTicket(String(params.id), body)
+    if (!updated) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json(updated)
+  }),
+
+  http.post('/api/tickets/:id/comments', async ({ params, request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    if (!capabilitiesForRole(ctx.role).includes('tasks:write')) return forbidden()
+    const existing = getTicket(String(params.id))
+    if (!existing || !canAccessTicket(ctx.scope, existing)) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    }
+    const body = (await request.json()) as { body: string }
+    const updated = addTicketComment(String(params.id), ctx.personId, body.body)
+    if (!updated) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json(updated)
+  }),
+
+  http.get('/api/wbs', ({ request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().wbs
+    let rows = filterByProjectScope(ctx.scope, getDb().wbs)
     if (projectId) rows = rows.filter((w) => w.projectId === projectId)
     return HttpResponse.json(rows)
   }),
@@ -288,10 +683,11 @@ export const handlers = [
   }),
 
   http.get('/api/milestones', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().milestones
+    let rows = filterByProjectScope(ctx.scope, getDb().milestones)
     if (projectId) rows = rows.filter((m) => m.projectId === projectId)
     return HttpResponse.json(rows)
   }),
@@ -305,19 +701,21 @@ export const handlers = [
   }),
 
   http.get('/api/slas', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().slas
+    let rows = filterByProjectScope(ctx.scope, getDb().slas)
     if (projectId) rows = rows.filter((s) => s.projectId === projectId)
     return HttpResponse.json(rows)
   }),
 
   http.get('/api/risks', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().risks
+    let rows = filterByProjectScope(ctx.scope, getDb().risks)
     if (projectId) rows = rows.filter((r) => r.projectId === projectId)
     return HttpResponse.json(rows)
   }),
@@ -339,10 +737,11 @@ export const handlers = [
   }),
 
   http.get('/api/transactions', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().transactions
+    let rows = filterByProjectScope(ctx.scope, getDb().transactions)
     if (projectId) rows = rows.filter((t) => t.projectId === projectId)
     return HttpResponse.json(rows)
   }),
@@ -356,10 +755,11 @@ export const handlers = [
   }),
 
   http.get('/api/approvals', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().approvals
+    let rows = filterByProjectScope(ctx.scope, getDb().approvals)
     if (projectId) rows = rows.filter((a) => a.projectId === projectId)
     return HttpResponse.json(rows)
   }),
@@ -381,18 +781,19 @@ export const handlers = [
   }),
 
   http.get('/api/documents', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().documents
+    let rows = filterByProjectScope(ctx.scope, getDb().documents)
     if (projectId) rows = rows.filter((d) => d.projectId === projectId)
     return HttpResponse.json(rows)
   }),
 
   http.post('/api/documents', async ({ request }) => {
-    const persona = bearerPersona(request)
-    if (!persona) return unauthorized()
-    if (!capabilitiesForRole(persona.role).includes('documents:upload')) return forbidden()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    if (!capabilitiesForRole(ctx.role).includes('documents:upload')) return forbidden()
     const body = (await request.json()) as {
       projectId: string
       name: string
@@ -400,12 +801,13 @@ export const handlers = [
       size?: string
       version?: string
     }
+    if (!canAccessProject(ctx.scope, body.projectId)) return forbidden('Not a member of this project')
     const doc = addDocument({
       id: `doc-${Date.now()}`,
       projectId: body.projectId,
       name: body.name,
       category: body.category,
-      uploadedBy: persona.personId,
+      uploadedBy: ctx.personId,
       uploadedAt: new Date().toISOString().slice(0, 10),
       size: body.size ?? '0 KB',
       version: body.version ?? '1.0',
@@ -414,28 +816,46 @@ export const handlers = [
   }),
 
   http.get('/api/activities', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId')
-    let rows = getDb().activities
+    let rows = filterByProjectScope(ctx.scope, getDb().activities)
     if (projectId) rows = rows.filter((a) => a.projectId === projectId)
     return HttpResponse.json(rows)
   }),
 
   http.get('/api/notifications', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
-    return HttpResponse.json(getDb().notifications)
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    const rows = getDb().notifications.filter((n) => {
+      if (ctx.scope.mode === 'all') {
+        return !n.recipientId || n.recipientId === ctx.personId
+      }
+      if (n.recipientId) return n.recipientId === ctx.personId
+      if (n.appId) return canAccessApp(ctx.scope, n.appId)
+      if (n.projectId) return canAccessProject(ctx.scope, n.projectId)
+      return false
+    })
+    return HttpResponse.json(rows)
   }),
 
   http.post('/api/notifications/:id/read', ({ params, request }) => {
-    if (!bearerUserId(request)) return unauthorized()
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    const existing = getDb().notifications.find((n) => n.id === params.id)
+    if (!existing) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    if (existing.recipientId && existing.recipientId !== ctx.personId) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    }
     const n = markNotificationRead(String(params.id))
     if (!n) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
     return HttpResponse.json(n)
   }),
 
   http.post('/api/notifications/read-all', ({ request }) => {
-    if (!bearerUserId(request)) return unauthorized()
-    return HttpResponse.json(markAllNotificationsRead())
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    return HttpResponse.json(markAllNotificationsRead(ctx.personId))
   }),
 ]

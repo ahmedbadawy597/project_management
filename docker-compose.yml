@@ -1,0 +1,69 @@
+# Full stack for server / DevOps deploys
+# Usage:
+#   cp awqaf-ppm-api/.env.example awqaf-ppm-api/.env   # edit JWT_SECRET, CORS_ORIGIN
+#   docker compose up -d --build
+#
+# On first API start, official users + project are seeded automatically if DB is empty.
+# Default temp password for all seed users: Awqaf@2026 (must change on first login)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: awqaf-ppm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: awqaf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-awqaf}
+      POSTGRES_DB: awqaf_ppm
+    volumes:
+      - awqaf_ppm_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U awqaf -d awqaf_ppm']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - awqaf
+
+  api:
+    build:
+      context: ./awqaf-ppm-api
+      dockerfile: Dockerfile
+    container_name: awqaf-ppm-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://awqaf:${POSTGRES_PASSWORD:-awqaf}@postgres:5432/awqaf_ppm?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      PORT: 3001
+      AUTO_SEED: ${AUTO_SEED:-true}
+      ENABLE_DEMO_RESET: ${ENABLE_DEMO_RESET:-false}
+    ports:
+      - '${API_PORT:-3001}:3001'
+    networks:
+      - awqaf
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: awqaf-ppm-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${WEB_PORT:-80}:80'
+    networks:
+      - awqaf
+
+volumes:
+  awqaf_ppm_pg:
+
+networks:
+  awqaf:
+    driver: bridge

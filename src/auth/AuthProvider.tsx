@@ -16,7 +16,8 @@ import { hasCapability } from './permissions'
 interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
-  login: (personaId: string) => Promise<void>
+  login: (username: string, password: string) => Promise<AuthUser>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<AuthUser>
   logout: () => void
   can: (capability: Capability) => boolean
 }
@@ -45,14 +46,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(
-    async (personaId: string) => {
-      const res = await api.login(personaId)
+    async (username: string, password: string) => {
+      const res = await api.login(username, password)
       setSessionToken(res.token)
       setUser(res.user)
       await qc.invalidateQueries()
+      return res.user
     },
     [qc],
   )
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const updated = await api.changePassword(currentPassword, newPassword)
+    setUser(updated)
+    return updated
+  }, [])
 
   const logout = useCallback(() => {
     setSessionToken(null)
@@ -66,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, can }),
-    [user, loading, login, logout, can],
+    () => ({ user, loading, login, changePassword, logout, can }),
+    [user, loading, login, changePassword, logout, can],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -4,9 +4,11 @@ import { PageError, PageLoading } from '@/components/shared/PageStates'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useDirection } from '@/hooks/useDirection'
 
 export function BudgetPanel({ projectId }: { projectId?: string }) {
   const { t, i18n } = useTranslation()
+  const { isRtl } = useDirection()
   const { state, isLoading, isError, refetch } = useDomain()
 
   if (isLoading || !state) return <PageLoading />
@@ -44,8 +46,8 @@ export function BudgetPanel({ projectId }: { projectId?: string }) {
                 }))}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF1" />
-                <XAxis dataKey="name" />
-                <YAxis />
+                <XAxis dataKey="name" reversed={isRtl} />
+                <YAxis orientation={isRtl ? 'right' : 'left'} />
                 <Tooltip formatter={(v) => formatCurrency(Number(v))} />
                 <Bar dataKey="approved" fill="#4B73C8" />
                 <Bar dataKey="spent" fill="#D99A32" />
@@ -61,8 +63,8 @@ export function BudgetPanel({ projectId }: { projectId?: string }) {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF1" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <XAxis dataKey="month" reversed={isRtl} />
+                <YAxis orientation={isRtl ? 'right' : 'left'} />
                 <Tooltip formatter={(v) => formatCurrency(Number(v))} />
                 <Line type="monotone" dataKey="spent" stroke="#3159A5" strokeWidth={2} />
               </LineChart>

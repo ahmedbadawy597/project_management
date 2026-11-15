@@ -29,10 +29,13 @@ export interface Person {
   name: string
   nameAr: string
   role: string
+  /** RBAC role for capabilities */
+  appRole?: string
   email: string
   department: string
   allocation: number
   availability: number
+  active?: boolean
   projectIds: string[]
 }
 
@@ -67,6 +70,14 @@ export interface Project {
 
 /** Application / module delivered inside a project */
 export type ProjectAppStatus = 'Planned' | 'Active' | 'Completed' | 'On Hold'
+export type AppPublishStatus =
+  | 'Published'
+  | 'Draft'
+  | 'UnderReview'
+  | 'Unpublished'
+  | 'يعمل'
+  | 'محدّث حديثًا'
+  | (string & {})
 
 export interface ProjectApp {
   id: string
@@ -80,7 +91,85 @@ export interface ProjectApp {
   status: ProjectAppStatus
   plannedStart: string
   plannedEnd: string
+  url?: string
+  userCount?: number
+  readiness?: number
+  iconColor?: string
+  publishStatus?: AppPublishStatus
+  featured?: boolean
+  sortOrder?: number
 }
+
+export type AppMemberRole = 'AppManager' | 'Developer' | 'Business' | 'Contributor'
+
+export interface AppMember {
+  personId: string
+  role: AppMemberRole
+  name?: string
+  nameAr?: string
+  email?: string
+}
+
+export type TicketTag =
+  | 'Risk'
+  | 'Problem'
+  | 'NeedHelp'
+  | 'Immediate'
+  | 'Blocked'
+  | 'Decision'
+  | 'Update'
+
+export type TicketUrgency = 'Normal' | 'High' | 'Immediate'
+export type TicketType = 'Task' | 'Problem' | 'Help' | 'Risk' | 'Bug'
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed'
+
+export interface TicketComment {
+  id: string
+  ticketId: string
+  authorId: string
+  body: string
+  createdAt: string
+}
+
+export interface Ticket {
+  id: string
+  projectId: string
+  appId?: string
+  type: TicketType | string
+  status: TicketStatus | string
+  priority: Priority | string
+  urgency: TicketUrgency | string
+  tags: TicketTag[] | string[]
+  title: string
+  titleAr: string
+  body: string
+  bodyAr: string
+  reporterId: string
+  assigneeId?: string
+  linkedRiskId?: string
+  linkedWbsId?: string
+  createdAt: string
+  updatedAt: string
+  commentCount?: number
+  comments?: TicketComment[]
+}
+
+export const TICKET_TAGS: TicketTag[] = [
+  'Risk',
+  'Problem',
+  'NeedHelp',
+  'Immediate',
+  'Blocked',
+  'Decision',
+  'Update',
+]
+
+export const APP_MEMBER_ROLES: AppMemberRole[] = [
+  'AppManager',
+  'Developer',
+  'Business',
+  'Contributor',
+]
 
 export interface WbsItem {
   id: string
@@ -205,6 +294,10 @@ export interface NotificationItem {
   at: string
   read: boolean
   href?: string
+  /** When set, only this person should see the notification. */
+  recipientId?: string
+  projectId?: string
+  appId?: string
 }
 
 export interface AppState {

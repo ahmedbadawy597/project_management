@@ -9,23 +9,30 @@ export const SheetClose = DialogPrimitive.Close
 export function SheetContent({
   className,
   children,
-  side = 'right',
+  side = 'end',
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & { side?: 'left' | 'right' }) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  side?: 'start' | 'end' | 'left' | 'right'
+}) {
+  const logical =
+    side === 'start' || side === 'left'
+      ? 'inset-y-0 start-0 border-e'
+      : 'inset-y-0 end-0 border-s'
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-navy/40" />
       <DialogPrimitive.Content
         className={cn(
           'fixed z-50 flex h-full w-[min(400px,100vw)] flex-col border-border bg-surface shadow-xl',
-          side === 'right' ? 'inset-y-0 end-0 border-s' : 'inset-y-0 start-0 border-e',
+          logical,
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute end-4 top-4 rounded-md p-1 text-muted hover:bg-bg">
+        <DialogPrimitive.Close className="absolute end-3 top-[max(0.75rem,env(safe-area-inset-top,0px))] z-10 rounded-md bg-bg/80 p-2 text-muted backdrop-blur hover:bg-bg">
           <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

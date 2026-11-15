@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: awqaf-ppm-db
+    restart: unless-stopped
+    ports:
+      - '5435:5432'
+    environment:
+      POSTGRES_USER: awqaf
+      POSTGRES_PASSWORD: awqaf
+      POSTGRES_DB: awqaf_ppm
+    volumes:
+      - awqaf_ppm_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U awqaf -d awqaf_ppm']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  awqaf_ppm_pg:

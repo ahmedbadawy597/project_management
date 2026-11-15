@@ -61,6 +61,7 @@ export function StatusBadge({ status, label }: { status: AnyStatus; label?: stri
     Open: 'warning',
     Mitigating: 'info',
     Closed: 'success',
+    Resolved: 'success',
     Critical: 'danger',
     High: 'warning',
     Medium: 'info',

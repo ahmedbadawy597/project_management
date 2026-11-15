@@ -1,0 +1,338 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id                 String   @id
+  name               String
+  nameAr             String
+  role               String
+  /// RBAC role used for capabilities: Portfolio Director | Project Manager | PMO Analyst | Executive Viewer
+  appRole            String   @default("Executive Viewer")
+  email              String   @unique
+  username           String   @unique
+  passwordHash       String
+  mustChangePassword Boolean  @default(true)
+  department         String
+  allocation         Int
+  availability       Int
+  active             Boolean  @default(true)
+  projectIds         String[] @default([])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  memberships  ProjectMember[]
+  appMembers   AppMember[]
+  reportedTickets Ticket[] @relation("TicketReporter")
+  assignedTickets Ticket[] @relation("TicketAssignee")
+  ticketComments  TicketComment[]
+}
+
+model Project {
+  id              String   @id
+  code            String   @unique
+  name            String
+  nameAr          String
+  description     String   @default("")
+  descriptionAr   String   @default("")
+  managerId       String
+  status          String
+  plannedProgress Float    @default(0)
+  actualProgress  Float    @default(0)
+  plannedStart    String
+  plannedEnd      String
+  forecastEnd     String
+  actualStart     String?
+  phase           String
+  budgetApproved  Float    @default(0)
+  budgetAllocated Float    @default(0)
+  budgetSpent     Float    @default(0)
+  slaCompliance   Float    @default(100)
+  riskLevel       String
+  summary         String   @default("")
+  summaryAr       String   @default("")
+  managerUpdate   String   @default("")
+  managerUpdateAr String   @default("")
+  charter         String   @default("")
+  charterAr       String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  apps          ProjectApp[]
+  members       ProjectMember[]
+  tickets       Ticket[]
+  wbs           WbsItem[]
+  milestones    Milestone[]
+  slas          SlaRecord[]
+  risks         Risk[]
+  transactions  BudgetTransaction[]
+  approvals     Approval[]
+  documents     DocumentItem[]
+  activities    ActivityItem[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  personId  String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, personId])
+  @@index([personId])
+  @@index([projectId])
+}
+
+model ProjectApp {
+  id            String  @id
+  projectId     String
+  code          String
+  name          String
+  nameAr        String
+  description   String  @default("")
+  descriptionAr String  @default("")
+  ownerId       String?
+  status        String
+  plannedStart  String
+  plannedEnd    String
+  /// Catalog / portal fields
+  url           String  @default("")
+  userCount     Int     @default(0)
+  readiness     Int     @default(0)
+  iconColor     String  @default("#0F766E")
+  /// Published | Draft | UnderReview | Unpublished
+  publishStatus String  @default("Draft")
+  featured      Boolean @default(false)
+  sortOrder     Int     @default(0)
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  members       AppMember[]
+  tickets       Ticket[]
+
+  @@index([projectId])
+  @@index([sortOrder])
+}
+
+/// App team membership with role: AppManager | Developer | Business | Contributor
+model AppMember {
+  id        String     @id @default(cuid())
+  appId     String
+  personId  String
+  role      String     @default("Contributor")
+  createdAt DateTime   @default(now())
+  app       ProjectApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  person    Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, personId])
+  @@index([personId])
+  @@index([appId])
+}
+
+model Ticket {
+  id           String   @id
+  projectId    String
+  appId        String?
+  type         String
+  status       String   @default("Open")
+  priority     String   @default("Medium")
+  urgency      String   @default("Normal")
+  tags         String[] @default([])
+  title        String
+  titleAr      String   @default("")
+  body         String   @default("")
+  bodyAr       String   @default("")
+  reporterId   String
+  assigneeId   String?
+  linkedRiskId String?
+  linkedWbsId  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  app      ProjectApp?     @relation(fields: [appId], references: [id], onDelete: SetNull)
+  reporter Person          @relation("TicketReporter", fields: [reporterId], references: [id])
+  assignee Person?         @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  comments TicketComment[]
+
+  @@index([projectId])
+  @@index([appId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    Person   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+}
+
+model WbsItem {
+  id             String   @id
+  projectId      String
+  parentId       String?
+  name           String
+  nameAr         String
+  type           String
+  start          String
+  end            String
+  baselineStart  String
+  baselineEnd    String
+  progress       Float    @default(0)
+  dependencies   String[] @default([])
+  assigneeId     String?
+  critical       Boolean  @default(false)
+  status         String
+  priority       String?
+  estimatedHours Float?
+  actualHours    Float?
+  description    String?
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Milestone {
+  id             String   @id
+  projectId      String
+  name           String
+  nameAr         String
+  ownerId        String
+  baselineDate   String
+  forecastDate   String
+  actualDate     String?
+  status         String
+  dependencies   String[] @default([])
+  deliverables   String[] @default([])
+  deliverablesAr String[] @default([])
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model SlaRecord {
+  id               String  @id
+  reference        String
+  projectId        String
+  category         String
+  managerId        String
+  targetHours      Float
+  consumedHours    Float
+  compliance       Float
+  status           String
+  warningThreshold Float
+  openedAt         String
+  dueAt            String
+  escalationCount  Int     @default(0)
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Risk {
+  id           String  @id
+  projectId    String
+  title        String
+  titleAr      String
+  ownerId      String
+  probability  Int
+  impact       Int
+  severity     String
+  mitigation   String
+  mitigationAr String
+  targetDate   String
+  status       String
+  type         String
+  overdue      Boolean @default(false)
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model BudgetTransaction {
+  id          String  @id
+  projectId   String
+  date        String
+  category    String
+  description String
+  amount      Float
+  type        String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Approval {
+  id          String            @id
+  projectId   String
+  type        String
+  title       String
+  titleAr     String
+  requesterId String
+  status      String
+  submittedAt String
+  decidedAt   String?
+  comments    ApprovalComment[]
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ApprovalComment {
+  id         String   @id @default(cuid())
+  approvalId String
+  authorId   String
+  text       String
+  at         String
+  approval   Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+
+  @@index([approvalId])
+}
+
+model DocumentItem {
+  id         String  @id
+  projectId  String
+  name       String
+  category   String
+  uploadedBy String
+  uploadedAt String
+  size       String
+  version    String
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ActivityItem {
+  id        String  @id
+  projectId String
+  type      String
+  title     String
+  titleAr   String
+  actorId   String
+  at        String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model NotificationItem {
+  id      String  @id
+  title   String
+  titleAr String
+  body    String
+  bodyAr  String
+  at      String
+  read    Boolean @default(false)
+  href    String?
+}

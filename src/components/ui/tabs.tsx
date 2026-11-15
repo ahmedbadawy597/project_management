@@ -5,10 +5,15 @@ export const Tabs = TabsPrimitive.Root
 
 export function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
-    <TabsPrimitive.List
-      className={cn('inline-flex h-10 items-center gap-1 rounded-lg bg-bg p-1 border border-border', className)}
-      {...props}
-    />
+    <div className="tabs-scroll sticky top-0 z-[15] -mx-1 px-1 pb-1">
+      <TabsPrimitive.List
+        className={cn(
+          'inline-flex h-11 min-w-full items-center gap-1 rounded-lg border border-border bg-bg/95 p-1 backdrop-blur-sm sm:min-w-0',
+          className,
+        )}
+        {...props}
+      />
+    </div>
   )
 }
 

@@ -1,54 +1,81 @@
 # Awqaf PPM
 
-Ministry of Awqaf – Project Portfolio Management frontend.
+Ministry of Awqaf – Project Portfolio Management (**frontend + backend** monorepo).
 
-Professional portfolio PPM UI with **mock API (MSW)**, **persona login / RBAC**, React Query, EN/AR + RTL, and persisted mock data.
+| Path | Role |
+|------|------|
+| `/` | React frontend (Vite) |
+| `awqaf-ppm-api/` | NestJS + Prisma + PostgreSQL API |
 
-## Stack
+## Official seed (created on first server start)
 
-React 19, TypeScript, Vite, Tailwind CSS, TanStack Query + Table, Zustand (UI prefs only), MSW, react-i18next, Recharts, custom Gantt schedule.
+When the API starts against an **empty** database it automatically creates:
 
-## Run
+- **10 users** (admin, PMs, developers) — usernames from email local-part  
+- **1 project** — Ministry of Awqaf Digital Applications Management  
+- **Application registry** for that project  
+
+Default temporary password for all seeded users: **`Awqaf@2026`** (forced change on first login).
+
+## Server deploy (DevOps)
 
 ```bash
+git clone https://github.com/ahmedbadawy597/project_management.git
+cd project_management
+
+# Optional: copy and edit secrets
+cp .env.production.example .env
+
+docker compose up -d --build
+```
+
+| Service | URL |
+|---------|-----|
+| Web UI | `http://<server>/` |
+| API | `http://<server>:3001/api` |
+| Swagger | `http://<server>:3001/api/docs` |
+
+What happens on first boot:
+
+1. Postgres starts  
+2. API runs `prisma migrate deploy`  
+3. API auto-seeds users + project if DB is empty (`AUTO_SEED=true`)  
+4. Nginx serves the UI and proxies `/api` → Nest  
+
+## Local development
+
+### API
+
+```bash
+cd awqaf-ppm-api
+docker compose up -d          # Postgres on :5435
+npm install
+npx prisma migrate deploy
+npm run start:dev             # seeds if empty; http://localhost:3001/api
+```
+
+### Frontend
+
+```bash
+# repo root
+cp .env.example .env          # VITE_API_BASE_URL=http://localhost:3001/api
 npm install --legacy-peer-deps
 npm run dev
 ```
 
-Open the app and sign in with a demo persona (Director, PM, Analyst, Viewer).
+MSW is used only when `VITE_API_BASE_URL` is unset.
 
-## Scripts
+## Scripts (root)
 
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | Vite + MSW mock API |
-| `npm run build` | Typecheck + production build |
-| `npm run lint` | oxlint on `src/` |
-| `npm run test` | Vitest unit tests |
-| `npm run test:e2e` | Playwright persona smoke |
+| `npm run dev` | Vite frontend |
+| `npm run build` | Production frontend build |
+| `npm run api:dev` | Nest watch mode |
+| `npm run api:seed` | Force reseed via Prisma CLI |
 | `npm run ci` | lint + test + build |
 
-## Architecture
+## Auth
 
-```
-UI pages → React Query hooks → apiFetch(/api/...) → MSW handlers → mock DB (localStorage)
-                                                              ↘ future real API via VITE_API_BASE_URL
-Auth: session token in sessionStorage · capabilities from persona role
-UI prefs: language, sidebar, density in Zustand (`awqaf-ppm-ui`)
-```
-
-Set `VITE_API_BASE_URL` (see `.env.example`) to bypass MSW and call a real backend with the same route shapes under `src/api/endpoints.ts`.
-
-## Personas (RBAC)
-
-| Persona | Can decide approvals | Admin |
-|---------|----------------------|-------|
-| Portfolio Director | Yes | Yes |
-| Project Manager | No | No |
-| PMO Analyst | No | No |
-| Executive Viewer | No (limited nav) | No |
-
-## Notes
-
-- Currency: SAR · Seed portfolio: 12 applications (4 active / 8 planned)
-- Mock DB key: `awqaf-ppm-mock-db` · Reset from **Settings**
+`POST /api/auth/login` with `{ "username": "ahmed.badawy", "password": "Awqaf@2026" }`  
+(or full email). Send `Authorization: Bearer <token>` afterward.
