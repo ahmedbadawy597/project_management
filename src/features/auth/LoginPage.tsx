@@ -5,13 +5,20 @@ import { Eye, EyeOff, Lock, ShieldCheck, User } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useUiStore } from '@/data/ui-store'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+
+const fieldClass =
+  'h-12 rounded-2xl border-border/70 bg-white/70 text-[15px] shadow-[inset_3px_3px_8px_rgba(217,211,191,0.45),inset_-2px_-2px_6px_rgba(255,255,255,0.9)] placeholder:text-muted/80 focus-visible:border-primary/30 focus-visible:bg-white focus-visible:ring-primary/20'
 
 export function LoginPage() {
   const { t, i18n } = useTranslation()
   const { user, login, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const language = useUiStore((s) => s.language)
+  const setLanguage = useUiStore((s) => s.setLanguage)
   const from = (location.state as { from?: string } | null)?.from ?? '/projects'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -47,120 +54,195 @@ export function LoginPage() {
     }
   }
 
-  const isAr = i18n.language === 'ar'
+  const isAr = i18n.language.startsWith('ar')
+  const busy = submitting || loading
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#E8E4D8] px-3 py-6 sm:p-4">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#E8E4D8] px-4 py-8 sm:px-6">
       <div
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 80% 50% at 10% 20%, rgba(15,118,110,0.18), transparent 55%), radial-gradient(ellipse 60% 45% at 90% 80%, rgba(31,107,71,0.14), transparent 50%)',
+            'radial-gradient(ellipse 70% 45% at 0% 0%, rgba(15,118,110,0.16), transparent 55%), radial-gradient(ellipse 55% 40% at 100% 100%, rgba(31,107,71,0.12), transparent 50%)',
         }}
       />
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        className="pointer-events-none absolute inset-0 opacity-[0.28]"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(31,46,38,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(31,46,38,0.04) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
+            'linear-gradient(rgba(31,46,38,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(31,46,38,0.035) 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
+          maskImage: 'radial-gradient(ellipse 80% 70% at 50% 45%, #000 20%, transparent 75%)',
         }}
       />
 
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-2xl border border-[#D9D3BF] bg-[#F3F0E6]/95 shadow-[0_24px_60px_rgba(31,46,38,0.12)] lg:grid-cols-[1.05fr_0.95fr]">
-        <aside className="relative hidden flex-col justify-between bg-gradient-to-br from-[#17523A] via-[#1F6B47] to-[#0F766E] p-10 text-white lg:flex">
-          <div>
-            <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold backdrop-blur">
-              أ
-            </div>
-            <p className="text-xs font-semibold tracking-[0.12em] text-white/70">
-              {isAr ? 'المنصة الرسمية لإدارة المشاريع' : 'Official Project Management Platform'}
-            </p>
-            <h1 className="mt-3 text-3xl font-bold leading-tight">
-              {t('app.ministry')}
-            </h1>
-            {!isAr ? <p className="mt-1 text-lg text-white/90">{t('app.ministryAr')}</p> : null}
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/85">
-              {t('auth.heroBody')}
-            </p>
+      <div className="relative w-full max-w-[980px]">
+        <div className="mb-4 flex items-center justify-end">
+          <div className="inline-flex rounded-xl bg-bg p-1 shadow-[4px_4px_10px_#D9D3BF,-4px_-4px_10px_#FFFFFF]">
+            {(['ar', 'en'] as const).map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => {
+                  setLanguage(lang)
+                  void i18n.changeLanguage(lang)
+                }}
+                className={cn(
+                  'min-h-8 rounded-lg px-3 text-xs font-bold transition',
+                  language === lang ? 'bg-primary text-white' : 'text-muted hover:text-navy',
+                )}
+              >
+                {lang === 'ar' ? 'عربي' : 'EN'}
+              </button>
+            ))}
           </div>
-          <div className="space-y-3 text-sm text-white/80">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 shrink-0" />
-              <span>{t('auth.secureAccess')}</span>
-            </div>
-            <p className="text-xs text-white/60">{t('auth.authorizedOnly')}</p>
-          </div>
-        </aside>
+        </div>
 
-        <div className="flex flex-col justify-center p-5 sm:p-8 md:p-10">
-          <div className="mb-6 text-start sm:mb-8">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-white lg:hidden">
-              أ
-            </div>
-            <p className="mb-2 text-xs font-semibold text-primary lg:hidden">{t('app.ministry')}</p>
-            <h2 className="text-xl font-bold text-navy sm:text-2xl">{t('auth.signInTitle')}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">{t('auth.subtitle')}</p>
-          </div>
+        <div className="grid overflow-hidden rounded-[1.75rem] border border-[#D9D3BF]/90 bg-[#F3F0E6]/95 shadow-[0_28px_70px_rgba(31,46,38,0.14)] lg:grid-cols-[1.08fr_0.92fr]">
+          <aside className="relative hidden min-h-[560px] flex-col justify-between overflow-hidden p-10 text-white lg:flex xl:p-12">
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(155deg, #14532D 0%, #1F6B47 48%, #0F766E 100%)',
+              }}
+            />
+            <div
+              className="pointer-events-none absolute -end-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute -bottom-24 -start-10 h-72 w-72 rounded-full bg-teal-300/10 blur-3xl"
+              aria-hidden
+            />
 
-          <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
-            <div className="space-y-1.5">
-              <label htmlFor="username" className="text-xs font-semibold text-navy">
-                {t('auth.username')}
-              </label>
-              <div className="relative">
-                <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <Input
-                  id="username"
-                  name="username"
-                  autoComplete="username"
-                  dir="ltr"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={t('auth.usernamePlaceholder')}
-                  className="h-11 ps-10"
-                  disabled={submitting || loading}
-                />
+            <div className="relative">
+              <div className="mb-10 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-sm">
+                أ
+              </div>
+              <p className="text-[11px] font-semibold tracking-[0.14em] text-white/65 uppercase">
+                {isAr ? 'المنصة الرسمية لإدارة المشاريع' : 'Official PPM Platform'}
+              </p>
+              <h1 className="mt-3 max-w-md text-[2rem] font-bold leading-[1.2] tracking-tight xl:text-[2.15rem]">
+                {t('app.ministry')}
+              </h1>
+              {!isAr ? (
+                <p className="mt-2 text-lg font-medium text-white/90">{t('app.ministryAr')}</p>
+              ) : null}
+              <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-white/80">
+                {t('auth.heroBody')}
+              </p>
+            </div>
+
+            <div className="relative space-y-4 border-t border-white/15 pt-6">
+              <div className="flex items-start gap-3 text-sm text-white/85">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/12">
+                  <ShieldCheck className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold text-white">{t('auth.secureAccess')}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/60">{t('auth.authorizedOnly')}</p>
+                </div>
               </div>
             </div>
+          </aside>
 
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-semibold text-navy">
-                {t('auth.password')}
-              </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  dir="ltr"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t('auth.passwordPlaceholder')}
-                  className="h-11 ps-10 pe-10"
-                  disabled={submitting || loading}
-                />
-                <button
-                  type="button"
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-navy"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+          <div className="relative flex flex-col justify-center px-5 py-8 sm:px-8 sm:py-10 md:px-10 lg:px-11">
+            <div className="mb-8">
+              <div className="mb-5 flex items-center gap-3 lg:hidden">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-white shadow-[4px_4px_10px_#D9D3BF]">
+                  أ
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-navy">{t('app.ministry')}</p>
+                  <p className="truncate text-[11px] text-muted">{t('app.fullName')}</p>
+                </div>
               </div>
+
+              <div className="mb-2 h-1.5 w-10 rounded-full bg-primary" aria-hidden />
+              <h2 className="text-[1.35rem] font-bold tracking-tight text-navy sm:text-2xl">
+                {t('auth.signInTitle')}
+              </h2>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
+                {t('auth.subtitle')}
+              </p>
             </div>
 
-            <Button className="h-11 w-full text-sm font-semibold" disabled={submitting || loading} type="submit">
-              {submitting ? t('auth.signingIn') : t('auth.signIn')}
-            </Button>
-          </form>
+            <form className="space-y-5" onSubmit={(e) => void onSubmit(e)} noValidate>
+              <div className="space-y-2">
+                <label htmlFor="username" className="text-[13px] font-semibold text-navy">
+                  {t('auth.username')}
+                </label>
+                <div className="relative" dir={isAr ? 'rtl' : 'ltr'}>
+                  <User className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <Input
+                    id="username"
+                    name="username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder={t('auth.usernamePlaceholder')}
+                    className={cn(
+                      fieldClass,
+                      'ps-11 pe-3',
+                      isAr ? 'text-right' : 'text-left',
+                    )}
+                    disabled={busy}
+                  />
+                </div>
+              </div>
 
-          <p className="mt-6 text-start text-[12px] leading-relaxed text-muted">
-            {t('auth.loginFooter')}
-          </p>
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-[13px] font-semibold text-navy">
+                  {t('auth.password')}
+                </label>
+                <div className="relative" dir={isAr ? 'rtl' : 'ltr'}>
+                  <Lock className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t('auth.passwordPlaceholder')}
+                    className={cn(
+                      fieldClass,
+                      'ps-11 pe-11',
+                      isAr ? 'text-right' : 'text-left',
+                    )}
+                    disabled={busy}
+                  />
+                  <button
+                    type="button"
+                    className="absolute end-2.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted transition hover:bg-bg hover:text-navy"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                className="mt-1 h-12 w-full text-[15px] font-bold tracking-wide"
+                disabled={busy}
+                type="submit"
+              >
+                {busy ? t('auth.signingIn') : t('auth.signIn')}
+              </Button>
+            </form>
+
+            <div className="mt-8 border-t border-border/60 pt-5">
+              <p className="text-[12px] leading-relaxed text-muted">{t('auth.loginFooter')}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

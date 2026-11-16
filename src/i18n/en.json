@@ -350,8 +350,8 @@
     "statusAccepted": "Accepted"
   },
   "auth": {
-    "signInTitle": "Secure Sign-In",
-    "subtitle": "Authenticate with your official Ministry credentials to access the platform.",
+    "signInTitle": "Sign in",
+    "subtitle": "Use your official Ministry account to access the platform.",
     "heroBody": "Official platform for governing digital applications, project delivery, team performance, and operational readiness across the Ministry of Awqaf.",
     "secureAccess": "Encrypted session and role-based access control",
     "authorizedOnly": "Restricted to authorized Ministry personnel only.",
