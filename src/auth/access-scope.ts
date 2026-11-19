@@ -3,7 +3,8 @@ import type { ProjectApp, Ticket } from '@/data/types'
 
 export type MembershipMaps = {
   projects: Array<{ id: string; managerId?: string }>
-  apps: Array<{ id: string; projectId: string; ownerId?: string }>
+  /** Optional to match DomainState / older bootstrap payloads. */
+  apps?: Array<{ id: string; projectId: string; ownerId?: string }>
   projectMembers?: Record<string, string[]>
   appMembers?: Record<string, Array<{ personId: string; role: string }>>
   appAccess?: Record<string, string[]>
@@ -36,11 +37,14 @@ export function resolveAccessScope(
   role: AppRole,
   maps: MembershipMaps,
 ): AccessScope {
+  const apps = maps.apps ?? []
+  const projects = maps.projects ?? []
+
   if (isGlobalAccessRole(role)) {
     return {
       mode: 'all',
-      projectIds: new Set(maps.projects.map((p) => p.id)),
-      appIds: new Set(maps.apps.map((a) => a.id)),
+      projectIds: new Set(projects.map((p) => p.id)),
+      appIds: new Set(apps.map((a) => a.id)),
     }
   }
 
@@ -54,7 +58,7 @@ export function resolveAccessScope(
     if (members.includes(personId)) projectIds.add(projectId)
   }
 
-  for (const project of maps.projects) {
+  for (const project of projects) {
     if (project.managerId === personId) projectIds.add(project.id)
   }
 
@@ -66,18 +70,18 @@ export function resolveAccessScope(
     if (ids.includes(personId)) appIds.add(appId)
   }
 
-  for (const app of maps.apps) {
+  for (const app of apps) {
     if (app.ownerId === personId) appIds.add(app.id)
   }
 
   // Parent projects of joined apps are visible for context (milestones / risks / chats).
-  for (const app of maps.apps) {
+  for (const app of apps) {
     if (appIds.has(app.id)) projectIds.add(app.projectId)
   }
 
   // Project managers see every app under projects they manage / belong to.
   if (role === 'Project Manager') {
-    for (const app of maps.apps) {
+    for (const app of apps) {
       if (projectIds.has(app.projectId)) appIds.add(app.id)
     }
   }
