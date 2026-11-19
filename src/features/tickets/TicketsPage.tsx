@@ -906,44 +906,61 @@ function ChatBubble({
   opening?: boolean
   openingLabel?: string
 }) {
-  return (
-    <div className={cn('flex gap-2.5', mine ? 'flex-row-reverse' : 'flex-row')}>
+  const avatarEl = (
+    <div
+      className={cn(
+        'mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+        mine ? 'bg-primary text-white' : 'bg-navy/[0.08] text-navy',
+      )}
+    >
+      {avatar}
+    </div>
+  )
+
+  const bubble = (
+    <div className={cn('max-w-[min(100%,32rem)]', mine ? 'text-end' : 'text-start')}>
       <div
         className={cn(
-          'mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
-          mine ? 'bg-primary text-white' : 'bg-navy/[0.08] text-navy',
+          'mb-1 flex items-center gap-2 text-[11px]',
+          mine ? 'justify-end' : 'justify-start',
         )}
       >
-        {avatar}
+        <span className="font-semibold text-navy/80">{name}</span>
+        <time className="text-muted tabular-nums">{time}</time>
+        {opening ? (
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            {openingLabel}
+          </span>
+        ) : null}
       </div>
-      <div className={cn('max-w-[min(100%,32rem)]', mine ? 'items-end' : 'items-start')}>
-        <div
-          className={cn(
-            'mb-1 flex items-center gap-2 text-[11px]',
-            mine ? 'flex-row-reverse' : 'flex-row',
-          )}
-        >
-          <span className="font-semibold text-navy/80">{name}</span>
-          <time className="text-muted tabular-nums">{time}</time>
-          {opening ? (
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-              {openingLabel}
-            </span>
-          ) : null}
-        </div>
-        <div
-          className={cn(
-            'px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap sm:text-sm',
-            mine
-              ? 'rounded-2xl rounded-ee-md bg-primary text-white shadow-[2px_2px_8px_rgba(31,107,71,0.22)]'
-              : 'rounded-2xl rounded-es-md border border-border/60 bg-bg/90 text-navy shadow-[2px_2px_8px_rgba(217,211,191,0.45)]',
-            opening && !mine && 'border-primary/25 bg-primary/[0.06]',
-          )}
-          dir="auto"
-        >
-          {body}
-        </div>
+      <div
+        className={cn(
+          'px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap sm:text-sm',
+          mine
+            ? 'rounded-2xl rounded-ee-md bg-primary text-white shadow-[2px_2px_8px_rgba(31,107,71,0.22)]'
+            : 'rounded-2xl rounded-es-md border border-border/60 bg-bg/90 text-navy shadow-[2px_2px_8px_rgba(217,211,191,0.45)]',
+          opening && !mine && 'border-primary/25 bg-primary/[0.06]',
+        )}
+        dir="auto"
+      >
+        {body}
       </div>
+    </div>
+  )
+
+  return (
+    <div className={cn('flex gap-2.5', mine ? 'justify-end' : 'justify-start')}>
+      {mine ? (
+        <>
+          {bubble}
+          {avatarEl}
+        </>
+      ) : (
+        <>
+          {avatarEl}
+          {bubble}
+        </>
+      )}
     </div>
   )
 }

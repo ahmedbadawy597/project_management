@@ -1,0 +1,70 @@
+# Production compose for projectsdb.strategizeit.us (no host ports; reverse-proxy network)
+# Usage on server:
+#   docker compose -f docker-compose.server.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: awqaf-ppm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: awqaf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-awqaf}
+      POSTGRES_DB: awqaf_ppm
+    volumes:
+      - awqaf_ppm_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U awqaf -d awqaf_ppm']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - awqaf
+
+  api:
+    build:
+      context: ./awqaf-ppm-api
+      dockerfile: Dockerfile
+    container_name: awqaf-ppm-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://awqaf:${POSTGRES_PASSWORD:-awqaf}@postgres:5432/awqaf_ppm?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://projectsdb.strategizeit.us}
+      PORT: 3001
+      AUTO_SEED: ${AUTO_SEED:-true}
+      ENABLE_DEMO_RESET: ${ENABLE_DEMO_RESET:-false}
+    networks:
+      - awqaf
+      - ecm_ecm-net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+        NGINX_CONF: nginx.server.conf
+    container_name: awqaf-ppm-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      VIRTUAL_HOST: projectsdb.strategizeit.us
+      LETSENCRYPT_HOST: projectsdb.strategizeit.us
+      VIRTUAL_PORT: 80
+    networks:
+      - awqaf
+      - ecm_ecm-net
+
+volumes:
+  awqaf_ppm_pg:
+
+networks:
+  awqaf:
+    driver: bridge
+  ecm_ecm-net:
+    external: true

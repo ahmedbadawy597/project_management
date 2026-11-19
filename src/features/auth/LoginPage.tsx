@@ -186,11 +186,7 @@ export function LoginPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={t('auth.usernamePlaceholder')}
-                    className={cn(
-                      fieldClass,
-                      'ps-11 pe-3',
-                      isAr ? 'text-right' : 'text-left',
-                    )}
+                    className={cn(fieldClass, 'ps-11 pe-3 text-start')}
                     disabled={busy}
                   />
                 </div>
@@ -211,11 +207,7 @@ export function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('auth.passwordPlaceholder')}
-                    className={cn(
-                      fieldClass,
-                      'ps-11 pe-11',
-                      isAr ? 'text-right' : 'text-left',
-                    )}
+                    className={cn(fieldClass, 'ps-11 pe-11 text-start')}
                     disabled={busy}
                   />
                   <button

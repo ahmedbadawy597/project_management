@@ -33,6 +33,7 @@ const ALLOW = [
   /BudgetPanel\.tsx$/,
   /ResourcesPage\.tsx$/,
   /SlaPage\.tsx$/,
+  /branded-workbook\.ts$/, // ExcelJS Border/Alignment APIs use left|right keys
 ]
 
 function walk(dir, out = []) {

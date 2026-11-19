@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]        # غيّرها لو الـ branch الأساسي اسمه تاني
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -30,6 +30,7 @@ jobs:
           cd ~/project_management
 
           DOMAIN=projectsdb.strategizeit.us
+          COMPOSE="docker compose -f docker-compose.server.yml"
           PREV=$(git rev-parse --short HEAD)
 
           echo "==> [1/6] Backup DB"
@@ -42,45 +43,21 @@ jobs:
           git reset --hard "origin/$BRANCH"
           NEW=$(git rev-parse --short HEAD)
 
-          echo "==> [3/6] Server-specific patches (runtime only)"
-          # تخطي type-check لحد ما المبرمج يصلّحه
-          sed -i 's/RUN npm run build/RUN npx vite build/' Dockerfile
-          # اسم فريد للـ API عشان ما يتلخبطش مع docuvault-api على ecm-net
-          sed -i 's|http://api:3001|http://awqaf-ppm-api:3001|' nginx.conf
-          # شيل ports المكشوفة + ضيف VIRTUAL_HOST والشبكة الخارجية
-          python3 - <<'PY'
-          p='docker-compose.yml'
-          s=open(p).read()
-          s=s.replace("    ports:\n      - '${API_PORT:-3001}:3001'\n","")
-          s=s.replace("    ports:\n      - '${WEB_PORT:-80}:80'\n","")
-          s=s.replace("""    depends_on:
-              - api
-            networks:
-              - awqaf
-          """.replace("\n          ","\n"),"""    depends_on:
-              - api
-            environment:
-              VIRTUAL_HOST: projectsdb.strategizeit.us
-              LETSENCRYPT_HOST: projectsdb.strategizeit.us
-              VIRTUAL_PORT: 80
-            networks:
-              - awqaf
-              - ecm_ecm-net
-          """.replace("\n          ","\n"))
-          s=s.replace("networks:\n  awqaf:\n    driver: bridge\n","networks:\n  awqaf:\n    driver: bridge\n  ecm_ecm-net:\n    external: true\n")
-          open(p,'w').write(s)
-          PY
-          grep -q VIRTUAL_HOST docker-compose.yml || { echo "compose patch failed"; exit 1; }
+          echo "==> [3/6] Verify server compose"
+          test -f docker-compose.server.yml
+          test -f nginx.server.conf
+          grep -q VIRTUAL_HOST docker-compose.server.yml
+          grep -q awqaf-ppm-api nginx.server.conf
 
           echo "==> [4/6] Build"
-          docker compose build
+          $COMPOSE build
 
           echo "==> [5/6] Sync schema + start"
-          # مؤقت: لحد ما المبرمج يضيف migration للـ username/email
-          docker compose up -d postgres
-          docker compose run --rm --entrypoint "" api npx prisma db push --skip-generate \
-            || echo "WARN: db push failed"
-          docker compose up -d
+          $COMPOSE up -d postgres
+          $COMPOSE run --rm --entrypoint "" api npx prisma migrate deploy \
+            || $COMPOSE run --rm --entrypoint "" api npx prisma db push --skip-generate \
+            || echo "WARN: schema sync failed"
+          $COMPOSE up -d
 
           echo "==> [6/6] Health check"
           for i in $(seq 1 25); do
@@ -91,7 +68,6 @@ jobs:
             sleep 3
           done
           echo "FAILED. Previous commit: $PREV"
-          docker compose logs --tail 40 api web
+          $COMPOSE logs --tail 40 api web
           exit 1
           REMOTE
-        
