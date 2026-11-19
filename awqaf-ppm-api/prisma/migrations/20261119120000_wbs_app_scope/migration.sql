@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "WbsItem" ADD COLUMN IF NOT EXISTS "appId" TEXT;
+ALTER TABLE "WbsItem" ADD COLUMN IF NOT EXISTS "code" TEXT;
+ALTER TABLE "WbsItem" ADD COLUMN IF NOT EXISTS "weightPct" DOUBLE PRECISION;
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "WbsItem_appId_idx" ON "WbsItem"("appId");
+
+-- AddForeignKey
+DO $$ BEGIN
+  ALTER TABLE "WbsItem" ADD CONSTRAINT "WbsItem_appId_fkey"
+    FOREIGN KEY ("appId") REFERENCES "ProjectApp"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

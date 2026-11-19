@@ -174,6 +174,10 @@ export const APP_MEMBER_ROLES: AppMemberRole[] = [
 export interface WbsItem {
   id: string
   projectId: string
+  /** Optional app scope when imported from a per-app plan sheet */
+  appId?: string
+  /** Stable import code (upsert key within project/app) */
+  code?: string
   parentId?: string
   name: string
   nameAr: string
@@ -183,6 +187,8 @@ export interface WbsItem {
   baselineStart: string
   baselineEnd: string
   progress: number
+  /** Optional phase weight percent from plan import */
+  weightPct?: number
   dependencies: string[]
   assigneeId?: string
   critical?: boolean
@@ -196,6 +202,8 @@ export interface WbsItem {
 export interface Milestone {
   id: string
   projectId: string
+  appId?: string
+  code?: string
   name: string
   nameAr: string
   ownerId: string
@@ -227,6 +235,8 @@ export interface SlaRecord {
 export interface Risk {
   id: string
   projectId: string
+  appId?: string
+  code?: string
   title: string
   titleAr: string
   ownerId: string

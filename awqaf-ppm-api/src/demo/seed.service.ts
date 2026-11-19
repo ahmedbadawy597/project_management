@@ -177,6 +177,8 @@ export class SeedService implements OnModuleInit {
         data: seedState.wbs.map((w) => ({
           id: w.id,
           projectId: w.projectId,
+          appId: (w as { appId?: string }).appId,
+          code: (w as { code?: string }).code,
           parentId: w.parentId,
           name: w.name,
           nameAr: w.nameAr,
@@ -186,6 +188,7 @@ export class SeedService implements OnModuleInit {
           baselineStart: w.baselineStart,
           baselineEnd: w.baselineEnd,
           progress: w.progress,
+          weightPct: (w as { weightPct?: number }).weightPct,
           dependencies: w.dependencies,
           assigneeId: w.assigneeId,
           critical: Boolean(w.critical),

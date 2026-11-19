@@ -16,6 +16,8 @@ import { SeedService } from './demo/seed.service'
 import { DocumentsController } from './documents/documents.controller'
 import { DocumentsService } from './documents/documents.service'
 import { HealthController } from './health/health.controller'
+import { ImportController } from './import/import.controller'
+import { ImportService } from './import/import.service'
 import { MilestonesController } from './milestones/milestones.controller'
 import { MilestonesService } from './milestones/milestones.service'
 import { NotificationsController } from './notifications/notifications.controller'
@@ -47,6 +49,7 @@ import { WbsService } from './wbs/wbs.service'
     HealthController,
     BootstrapController,
     DemoController,
+    ImportController,
     MembersController,
     ProjectsController,
     AppMembersController,
@@ -67,6 +70,7 @@ import { WbsService } from './wbs/wbs.service'
     AccessService,
     SeedService,
     BootstrapService,
+    ImportService,
     ProjectsService,
     MembersService,
     AppsService,

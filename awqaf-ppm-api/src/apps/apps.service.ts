@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { computeAppDashboardMetrics } from '../common/app-dashboard-metrics'
 import { mapApp } from '../common/mappers'
 import { PrismaService } from '../prisma/prisma.service'
 import { AppMembersService, type MemberInput } from './app-members.service'
@@ -125,5 +126,12 @@ export class AppsService {
     } catch {
       throw new NotFoundException('Not found')
     }
+  }
+
+  async dashboard(id: string) {
+    const app = await this.prisma.projectApp.findUnique({ where: { id } })
+    if (!app) throw new NotFoundException('Not found')
+    const wbs = await this.prisma.wbsItem.findMany({ where: { appId: id } })
+    return computeAppDashboardMetrics(app, wbs)
   }
 }

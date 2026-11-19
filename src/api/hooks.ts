@@ -112,6 +112,7 @@ function invalidateDomain(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: queryKeys.bootstrap })
   void qc.invalidateQueries({ queryKey: ['projects'] })
   void qc.invalidateQueries({ queryKey: ['apps'] })
+  void qc.invalidateQueries({ queryKey: ['app-dashboard'] })
   void qc.invalidateQueries({ queryKey: ['wbs'] })
   void qc.invalidateQueries({ queryKey: ['approvals'] })
   void qc.invalidateQueries({ queryKey: ['risks'] })
@@ -131,10 +132,27 @@ export function useApps(projectId?: string) {
   })
 }
 
+export function useAppDashboard(appId?: string) {
+  return useQuery({
+    queryKey: ['app-dashboard', appId ?? ''],
+    queryFn: () => api.appDashboard(appId!),
+    enabled: Boolean(appId),
+    staleTime: 15_000,
+  })
+}
+
 export function useCreateProject() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: CreateProjectInput) => api.createProject(input),
+    onSuccess: () => invalidateDomain(qc),
+  })
+}
+
+export function useImportProjectPack() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (pack: import('@/lib/project-pack').ParsedProjectPack) => api.importProjectPack(pack),
     onSuccess: () => invalidateDomain(qc),
   })
 }

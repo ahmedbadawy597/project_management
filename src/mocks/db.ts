@@ -5,6 +5,9 @@ import {
   resolveAccessScope,
 } from '@/auth/access-scope'
 import type { AppRole } from '@/auth/permissions'
+import { applyProjectPack } from '@/lib/project-pack'
+import type { ImportSummary, ParsedProjectPack } from '@/lib/project-pack'
+import { computeAppDashboardMetrics } from '@/lib/app-dashboard-metrics'
 import type {
   ActivityItem,
   AppMemberRole,
@@ -590,9 +593,20 @@ export function decideApproval(
   return next
 }
 
+function syncAppReadiness(appId: string | undefined) {
+  if (!appId) return
+  const app = db.apps.find((a) => a.id === appId)
+  if (!app) return
+  const metrics = computeAppDashboardMetrics(app, db.wbs)
+  if (metrics.hasPlan) {
+    app.readiness = Math.round(metrics.overallProgress)
+  }
+}
+
 export function upsertTask(task: WbsItem, actorId: string): WbsItem {
   const idx = db.wbs.findIndex((w) => w.id === task.id)
   const exists = idx >= 0
+  const prevAppId = exists ? db.wbs[idx].appId : undefined
   if (exists) db.wbs[idx] = task
   else db.wbs.unshift(task)
   pushActivity({
@@ -602,6 +616,8 @@ export function upsertTask(task: WbsItem, actorId: string): WbsItem {
     titleAr: exists ? `تم تحديث المهمة: ${task.nameAr}` : `تم إنشاء المهمة: ${task.nameAr}`,
     actorId,
   })
+  syncAppReadiness(task.appId)
+  if (prevAppId && prevAppId !== task.appId) syncAppReadiness(prevAppId)
   persist()
   return task
 }
@@ -614,16 +630,25 @@ export function updateTaskStatus(id: string, status: TaskStatus): WbsItem | null
     status,
     progress: status === 'Completed' ? 100 : db.wbs[idx].progress,
   }
+  syncAppReadiness(db.wbs[idx].appId)
   persist()
   return db.wbs[idx]
 }
 
 export function deleteTask(id: string): boolean {
+  const existing = db.wbs.find((w) => w.id === id)
   const before = db.wbs.length
   db.wbs = db.wbs.filter((w) => w.id !== id)
   if (db.wbs.length === before) return false
+  syncAppReadiness(existing?.appId)
   persist()
   return true
+}
+
+export function getAppDashboard(appId: string) {
+  const app = db.apps.find((a) => a.id === appId)
+  if (!app) return null
+  return computeAppDashboardMetrics(app, db.wbs)
 }
 
 export function upsertRisk(risk: Risk): Risk {
@@ -640,6 +665,45 @@ export function upsertMilestone(m: Milestone): Milestone {
   else db.milestones.unshift(m)
   persist()
   return m
+}
+
+export function importProjectPack(pack: ParsedProjectPack, actorId: string): ImportSummary {
+  return applyProjectPack(pack, actorId, {
+    people: db.people,
+    findProjectByCode: (code) => db.projects.find((p) => p.code.toUpperCase() === code.toUpperCase()),
+    findAppByCode: (projectId, code) =>
+      db.apps.find((a) => a.projectId === projectId && a.code.toUpperCase() === code.toUpperCase()),
+    upsertProject: (project, actor, created) => {
+      const idx = db.projects.findIndex((p) => p.id === project.id)
+      if (idx >= 0) {
+        db.projects[idx] = project
+        persist()
+      } else if (created) {
+        createProject(project, actor)
+      } else {
+        db.projects.unshift(project)
+        persist()
+      }
+    },
+    upsertApp: (app) => {
+      upsertApp(app)
+    },
+    setProjectMembers: (projectId, personIds) => {
+      setProjectMembers(projectId, personIds)
+    },
+    setAppMembers: (appId, members) => {
+      setAppMembers(appId, members)
+    },
+    upsertWbs: (item, actor) => {
+      upsertTask(item, actor)
+    },
+    upsertMilestone: (m) => {
+      upsertMilestone(m)
+    },
+    upsertRisk: (r) => {
+      upsertRisk(r)
+    },
+  })
 }
 
 export function addTransaction(tx: BudgetTransaction): BudgetTransaction {

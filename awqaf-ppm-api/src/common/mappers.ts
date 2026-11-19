@@ -90,6 +90,8 @@ export function mapWbs(w: WbsItem) {
   return {
     id: w.id,
     projectId: w.projectId,
+    appId: w.appId ?? undefined,
+    code: w.code ?? undefined,
     parentId: w.parentId ?? undefined,
     name: w.name,
     nameAr: w.nameAr,
@@ -99,6 +101,7 @@ export function mapWbs(w: WbsItem) {
     baselineStart: w.baselineStart,
     baselineEnd: w.baselineEnd,
     progress: w.progress,
+    weightPct: w.weightPct ?? undefined,
     dependencies: w.dependencies,
     assigneeId: w.assigneeId ?? undefined,
     critical: w.critical || undefined,

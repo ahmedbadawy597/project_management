@@ -38,6 +38,7 @@ import type { AppMemberRole, AppPublishStatus, ProjectApp, TicketUrgency } from 
 import { APP_MEMBER_ROLES } from '@/data/types'
 import { personName } from '@/data/selectors'
 import { cn, formatDate } from '@/lib/utils'
+import { AppProgressDashboard } from './AppProgressDashboard'
 
 const PUBLISH_STATUSES: AppPublishStatus[] = [
   'يعمل',
@@ -285,41 +286,6 @@ export function AppWorkspacePage() {
         }
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-4">
-        <div
-          className="flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white"
-          style={{ backgroundColor: app.iconColor || '#0F766E' }}
-        >
-          {title.slice(0, 1)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted line-clamp-2">{description}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded-md bg-teal/10 px-2 py-0.5 text-teal">
-              {app.publishStatus || app.status}
-            </span>
-            <span className="rounded-md bg-bg px-2 py-0.5 text-navy">
-              {t('executive.readiness')}: {app.readiness ?? 0}%
-            </span>
-            <span className="rounded-md bg-bg px-2 py-0.5 text-navy">
-              {t('common.pm')}:{' '}
-              {manager
-                ? personName(state, manager.personId, language)
-                : draft.ownerId
-                  ? personName(state, draft.ownerId, language)
-                  : t('executive.unassignedPm')}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="kpi-grid-4 mb-6">
-        <KPICard label={t('executive.users')} value={(app.userCount ?? 0).toLocaleString()} icon={Users} featured />
-        <KPICard label={t('executive.readiness')} value={`${app.readiness ?? 0}%`} icon={LayoutDashboard} tone="teal" />
-        <KPICard label={t('appWorkspace.teamMembers')} value={memberDraft.length} icon={Users} tone="info" />
-        <KPICard label={t('appWorkspace.openItems')} value={openTickets} icon={MessageSquare} tone="warning" />
-      </div>
-
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4 flex h-auto flex-wrap gap-1">
           <TabsTrigger value="overview">{t('appWorkspace.tabOverview')}</TabsTrigger>
@@ -329,6 +295,34 @@ export function AppWorkspacePage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <AppProgressDashboard
+            app={app}
+            wbs={state.wbs ?? []}
+            description={description}
+          />
+
+          <div className="kpi-grid-4">
+            <KPICard label={t('appWorkspace.teamMembers')} value={memberDraft.length} icon={Users} tone="info" />
+            <KPICard label={t('appWorkspace.openItems')} value={openTickets} icon={MessageSquare} tone="warning" />
+            <KPICard
+              label={t('common.pm')}
+              value={
+                manager
+                  ? personName(state, manager.personId, language)
+                  : draft.ownerId
+                    ? personName(state, draft.ownerId, language)
+                    : t('executive.unassignedPm')
+              }
+              icon={LayoutDashboard}
+              tone="teal"
+            />
+            <KPICard
+              label={t('appsCatalog.publishStatus')}
+              value={String(app.publishStatus || app.status)}
+              icon={LayoutDashboard}
+            />
+          </div>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
               <div>
@@ -387,7 +381,7 @@ export function AppWorkspacePage() {
                   onChange={(e) => setDraft({ ...draft, userCount: e.target.value })}
                 />
               </Field>
-              <Field label={t('executive.readiness')}>
+              <Field label={`${t('executive.readiness')} (${t('appDashboard.autoOrManual')})`}>
                 <Input
                   type="number"
                   min={0}

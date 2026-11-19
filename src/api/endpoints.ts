@@ -136,6 +136,8 @@ export const api = {
     apiFetch<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   apps: (projectId?: string) =>
     apiFetch<ProjectApp[]>(projectId ? `/apps?projectId=${projectId}` : '/apps'),
+  appDashboard: (appId: string) =>
+    apiFetch<import('@/lib/app-dashboard-metrics').AppDashboardMetrics>(`/apps/${appId}/dashboard`),
   upsertApp: (app: ProjectApp & { members?: AppMemberInput[] }) =>
     apiFetch<ProjectApp>(app.id ? `/apps/${app.id}` : '/apps', {
       method: app.id ? 'PUT' : 'POST',
@@ -280,6 +282,17 @@ export const api = {
     apiFetch<NotificationItem>(`/notifications/${id}/read`, { method: 'POST' }),
   markAllNotificationsRead: () =>
     apiFetch<NotificationItem[]>('/notifications/read-all', { method: 'POST' }),
+  importProjectPack: (pack: import('@/lib/project-pack').ParsedProjectPack) =>
+    apiFetch<{
+      ok: boolean
+      summary?: import('@/lib/project-pack').ImportSummary
+      warnings?: import('@/lib/project-pack').PackIssue[]
+      issues?: import('@/lib/project-pack').PackIssue[]
+      message?: string
+    }>('/import/project-pack', {
+      method: 'POST',
+      body: JSON.stringify({ pack }),
+    }),
 }
 
 export const queryKeys = {

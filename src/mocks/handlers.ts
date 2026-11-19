@@ -47,12 +47,16 @@ import {
   updateProject,
   updateTaskStatus,
   updateTicket,
+  getAppDashboard,
+  importProjectPack,
   reorderApps,
   upsertApp,
   upsertMilestone,
   upsertRisk,
   upsertTask,
 } from './db'
+import type { ParsedProjectPack } from '@/lib/project-pack'
+import { isBlockingIssue, validateProjectPack } from '@/lib/project-pack'
 
 function unauthorized() {
   return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })
@@ -321,6 +325,16 @@ export const handlers = [
     const body = (await request.json()) as ProjectApp
     const app: ProjectApp = { ...body, id: String(params.id) }
     return HttpResponse.json(upsertApp(app))
+  }),
+
+  http.get('/api/apps/:id/dashboard', ({ params, request }) => {
+    const ctx = requestScope(request)
+    if (!ctx) return unauthorized()
+    const appId = String(params.id)
+    if (!canAccessApp(ctx.scope, appId)) return forbidden('Not a member of this app')
+    const dash = getAppDashboard(appId)
+    if (!dash) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json(dash)
   }),
 
   http.delete('/api/apps/:id', ({ params, request }) => {
@@ -857,5 +871,23 @@ export const handlers = [
     const ctx = requestScope(request)
     if (!ctx) return unauthorized()
     return HttpResponse.json(markAllNotificationsRead(ctx.personId))
+  }),
+
+  http.post('/api/import/project-pack', async ({ request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('projects:write')) return forbidden()
+    const body = (await request.json()) as { pack: ParsedProjectPack }
+    if (!body?.pack?.project) {
+      return HttpResponse.json({ message: 'Invalid pack payload' }, { status: 400 })
+    }
+    const issues = validateProjectPack(body.pack, { people: getDb().people })
+    const blocking = issues.filter(isBlockingIssue)
+    if (blocking.length) {
+      return HttpResponse.json({ ok: false, issues: blocking }, { status: 400 })
+    }
+    const actorId = bearerUserId(request) ?? persona.personId
+    const summary = importProjectPack(body.pack, actorId)
+    return HttpResponse.json({ ok: true, summary, warnings: issues.filter((i) => !isBlockingIssue(i)) })
   }),
 ]

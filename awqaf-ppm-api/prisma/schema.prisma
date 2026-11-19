@@ -113,6 +113,7 @@ model ProjectApp {
   project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   members       AppMember[]
   tickets       Ticket[]
+  wbsItems      WbsItem[]
 
   @@index([projectId])
   @@index([sortOrder])
@@ -180,6 +181,8 @@ model TicketComment {
 model WbsItem {
   id             String   @id
   projectId      String
+  appId          String?
+  code           String?
   parentId       String?
   name           String
   nameAr         String
@@ -189,6 +192,7 @@ model WbsItem {
   baselineStart  String
   baselineEnd    String
   progress       Float    @default(0)
+  weightPct      Float?
   dependencies   String[] @default([])
   assigneeId     String?
   critical       Boolean  @default(false)
@@ -198,8 +202,10 @@ model WbsItem {
   actualHours    Float?
   description    String?
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  app            ProjectApp? @relation(fields: [appId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
+  @@index([appId])
 }
 
 model Milestone {

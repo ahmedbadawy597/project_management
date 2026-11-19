@@ -63,6 +63,13 @@ export class AppsController {
     return this.apps.reorder(body.orderedIds ?? [])
   }
 
+  @Get(':id/dashboard')
+  @ApiSecured('App progress dashboard metrics')
+  @ApiOkResponse({ description: 'Automatic progress KPIs and phase bars for an app' })
+  dashboard(@Param('id') id: string) {
+    return this.apps.dashboard(id)
+  }
+
   @Put(':id')
   @RequireCapabilities('projects:write')
   @ApiSecured('Update app', { forbidden: true })

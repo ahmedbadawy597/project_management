@@ -22,9 +22,17 @@ export class MessageExceptionFilter implements ExceptionFilter {
       const body = exception.getResponse()
       if (typeof body === 'string') {
         message = body
-      } else if (typeof body === 'object' && body && 'message' in body) {
-        const raw = (body as { message: string | string[] }).message
-        message = Array.isArray(raw) ? raw.join(', ') : String(raw)
+      } else if (typeof body === 'object' && body) {
+        const obj = body as Record<string, unknown>
+        // Preserve structured validation payloads (e.g. project-pack import issues)
+        if ('ok' in obj || 'issues' in obj || 'summary' in obj) {
+          response.status(status).json(obj)
+          return
+        }
+        if ('message' in obj) {
+          const raw = obj.message
+          message = Array.isArray(raw) ? raw.join(', ') : String(raw)
+        }
       }
     } else if (exception instanceof Error) {
       message = exception.message

@@ -11,6 +11,8 @@ import {
   Settings2,
   Users,
 } from 'lucide-react'
+import { ProjectPackActions } from './ProjectPackActions'
+import { useAuth } from '@/auth/AuthProvider'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { HealthIndicator } from '@/components/shared/HealthIndicator'
@@ -31,10 +33,12 @@ const STATUS_FILTERS = ['All', 'Active', 'Planned', 'Completed', 'On Hold'] as c
 
 export function ManageProjectsPage() {
   const { t } = useTranslation()
+  const { can } = useAuth()
   const { isScoped } = useAccessScope()
   const { state, language, isLoading, isError, refetch } = useDomain()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>('All')
+  const canWrite = can('projects:write')
 
   const rows = useMemo(() => {
     if (!state) return []
@@ -121,6 +125,15 @@ export function ManageProjectsPage() {
           tone={unassigned > 0 ? 'warning' : 'success'}
         />
       </div>
+
+      {canWrite && !isScoped ? (
+        <Card className="mb-6">
+          <CardContent className="space-y-2 py-4">
+            <h2 className="text-sm font-bold text-navy">{t('manage.packTitle')}</h2>
+            <ProjectPackActions />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full max-w-md">

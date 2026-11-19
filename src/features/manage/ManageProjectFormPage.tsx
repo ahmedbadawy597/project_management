@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Plus, Trash2, Users } from 'lucide-react'
+import { ProjectPackActions } from './ProjectPackActions'
 import { RtlIcon } from '@/components/shared/RtlIcon'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -420,6 +421,16 @@ export function ManageProjectFormPage() {
           </Button>
         }
       />
+
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{t('manage.packTitle')}</CardTitle>
+          <CardDescription>{t('manage.packHint')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProjectPackActions projectId={isNew ? undefined : projectId} compact />
+        </CardContent>
+      </Card>
 
       <Tabs
         value={isNew ? 'details' : activeTab}

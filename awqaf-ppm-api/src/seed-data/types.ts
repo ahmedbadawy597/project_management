@@ -101,6 +101,8 @@ export interface ProjectApp {
 export interface WbsItem {
   id: string
   projectId: string
+  appId?: string
+  code?: string
   parentId?: string
   name: string
   nameAr: string
@@ -110,6 +112,7 @@ export interface WbsItem {
   baselineStart: string
   baselineEnd: string
   progress: number
+  weightPct?: number
   dependencies: string[]
   assigneeId?: string
   critical?: boolean

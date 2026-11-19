@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { pushActivity } from '../common/activity.util'
+import { computeAppDashboardMetrics } from '../common/app-dashboard-metrics'
 import { mapWbs } from '../common/mappers'
 import { PrismaService } from '../prisma/prisma.service'
 
@@ -15,11 +16,27 @@ export class WbsService {
     return rows.map(mapWbs)
   }
 
+  private async syncAppReadiness(appId: string | null | undefined) {
+    if (!appId) return
+    const app = await this.prisma.projectApp.findUnique({ where: { id: appId } })
+    if (!app) return
+    const wbs = await this.prisma.wbsItem.findMany({ where: { appId } })
+    const metrics = computeAppDashboardMetrics(app, wbs)
+    if (metrics.hasPlan) {
+      await this.prisma.projectApp.update({
+        where: { id: appId },
+        data: { readiness: Math.round(metrics.overallProgress) },
+      })
+    }
+  }
+
   async upsert(task: Record<string, unknown>, actorId: string) {
     const id = String(task.id || `wbs-${Date.now()}`)
     const existing = await this.prisma.wbsItem.findUnique({ where: { id } })
     const data = {
       projectId: String(task.projectId),
+      appId: task.appId ? String(task.appId) : null,
+      code: task.code ? String(task.code) : null,
       parentId: task.parentId ? String(task.parentId) : null,
       name: String(task.name),
       nameAr: String(task.nameAr ?? task.name),
@@ -29,6 +46,10 @@ export class WbsService {
       baselineStart: String(task.baselineStart ?? task.start),
       baselineEnd: String(task.baselineEnd ?? task.end),
       progress: Number(task.progress ?? 0),
+      weightPct:
+        task.weightPct === undefined || task.weightPct === null || task.weightPct === ''
+          ? null
+          : Number(task.weightPct),
       dependencies: Array.isArray(task.dependencies) ? (task.dependencies as string[]) : [],
       assigneeId: task.assigneeId ? String(task.assigneeId) : null,
       critical: Boolean(task.critical),
@@ -58,6 +79,10 @@ export class WbsService {
         : `تم إنشاء المهمة: ${row.nameAr}`,
       actorId,
     })
+    await this.syncAppReadiness(row.appId)
+    if (existing?.appId && existing.appId !== row.appId) {
+      await this.syncAppReadiness(existing.appId)
+    }
     return mapWbs(row)
   }
 
@@ -71,14 +96,17 @@ export class WbsService {
         progress: status === 'Completed' ? 100 : existing.progress,
       },
     })
+    await this.syncAppReadiness(row.appId)
     return mapWbs(row)
   }
 
   async remove(id: string) {
+    const existing = await this.prisma.wbsItem.findUnique({ where: { id } })
     try {
       await this.prisma.wbsItem.delete({ where: { id } })
     } catch {
       throw new NotFoundException('Not found')
     }
+    await this.syncAppReadiness(existing?.appId)
   }
 }
