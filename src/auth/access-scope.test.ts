@@ -51,11 +51,11 @@ describe('access-scope', () => {
     expect(canAccessTicket(scope, { projectId: 'prj-a', appId: 'app-2' })).toBe(false)
   })
 
-  it('lets Project Manager see all apps under joined projects', () => {
+  it('gives Project Manager full portfolio access like Portfolio Director', () => {
     const scope = resolveAccessScope('p-pm1', 'Project Manager', maps)
-    expect(scope.mode).toBe('scoped')
+    expect(scope.mode).toBe('all')
     expect(scope.appIds.has('app-1')).toBe(true)
     expect(scope.appIds.has('app-2')).toBe(true)
-    expect(scope.appIds.has('app-3')).toBe(false)
+    expect(scope.appIds.has('app-3')).toBe(true)
   })
 })

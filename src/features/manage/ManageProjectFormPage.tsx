@@ -413,12 +413,21 @@ export function ManageProjectFormPage() {
               : project?.name
         }
         actions={
-          <Button variant="ghost" asChild>
-            <Link to="/manage">
-              <RtlIcon icon={ArrowLeft} className="me-1.5 h-4 w-4" />
-              {t('manage.back')}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {!isNew && projectId ? (
+              <Button variant="outline" asChild className="min-h-11">
+                <Link to={`/manage/projects/${projectId}/setup`}>
+                  {t('importSetup.reviewPlan')}
+                </Link>
+              </Button>
+            ) : null}
+            <Button variant="ghost" asChild>
+              <Link to="/manage">
+                <RtlIcon icon={ArrowLeft} className="me-1.5 h-4 w-4" />
+                {t('manage.back')}
+              </Link>
+            </Button>
+          </div>
         }
       />
 

@@ -83,6 +83,27 @@ export class ProjectsService {
     return mapProject(updated)
   }
 
+  /** Deletes project and cascaded apps, plan, tickets, and related records. */
+  async remove(id: string) {
+    const prev = await this.prisma.project.findUnique({
+      where: { id },
+      include: { members: { select: { personId: true } } },
+    })
+    if (!prev) throw new NotFoundException('Not found')
+
+    const memberIds = [
+      ...new Set([prev.managerId, ...prev.members.map((m) => m.personId)]),
+    ]
+
+    await this.prisma.project.delete({ where: { id } })
+
+    for (const personId of memberIds) {
+      await this.access.syncPersonProjectIds(personId)
+    }
+
+    return { ok: true as const, id }
+  }
+
   private async syncManagerAssignment(
     prevManagerId: string | undefined,
     nextManagerId: string,

@@ -55,26 +55,8 @@ const ALL: Capability[] = [
 
 const ROLE_CAPABILITIES: Record<AppRole, Capability[]> = {
   'Portfolio Director': ALL,
-  'Project Manager': [
-    'portfolio:view',
-    'executive:view',
-    'projects:view',
-    'projects:write',
-    'tasks:write',
-    'milestones:write',
-    'risks:write',
-    'sla:view',
-    'budget:view',
-    'documents:view',
-    'documents:upload',
-    'approvals:view',
-    'reports:view',
-    'reports:export',
-    'resources:view',
-    'notifications:view',
-    'gantt:view',
-    'roadmap:view',
-  ],
+  /** Same capabilities as Portfolio Director (admin, approvals, budget adjust, full write). */
+  'Project Manager': ALL,
   Developer: [
     'portfolio:view',
     'projects:view',

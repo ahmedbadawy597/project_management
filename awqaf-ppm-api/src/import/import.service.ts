@@ -2,6 +2,11 @@ import { BadRequestException, Injectable } from '@nestjs/common'
 import { computeAppDashboardMetrics } from '../common/app-dashboard-metrics'
 import { pushActivity } from '../common/activity.util'
 import { AccessService } from '../common/access.service'
+import {
+  inferDeliveryStatus,
+  inferMilestoneStatus,
+  inferScheduleState,
+} from '../common/schedule-intelligence'
 import { AppMembersService } from '../apps/app-members.service'
 import { MembersService } from '../projects/members.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -67,7 +72,11 @@ export class ImportService {
       description: pack.project.description_en || '',
       descriptionAr: pack.project.description_ar || '',
       managerId,
-      status: pack.project.status,
+      status: inferDeliveryStatus(
+        pack.project.planned_start,
+        pack.project.planned_end,
+        pack.project.status,
+      ),
       plannedStart: pack.project.planned_start,
       plannedEnd: pack.project.planned_end,
       forecastEnd: pack.project.planned_end,
@@ -127,7 +136,7 @@ export class ImportService {
         description: row.description_ar || '',
         descriptionAr: row.description_ar || '',
         ownerId: owner?.id ?? prev?.ownerId ?? null,
-        status: row.status,
+        status: inferDeliveryStatus(row.planned_start, row.planned_end, row.status),
         plannedStart: row.planned_start,
         plannedEnd: row.planned_end,
         url: prev?.url ?? '',
@@ -210,6 +219,14 @@ export class ImportService {
               .map((s) => s.trim())
               .filter(Boolean)
           : []
+        const start = row.start || pack.project.planned_start
+        const end = row.end || pack.project.planned_end
+        const reported = Math.min(100, Math.max(0, row.progress || 0))
+        const smart = inferScheduleState(start, end, reported)
+        // Lock completed past work at 100%; leave active calendar-driven rows at 0
+        // so the dashboard keeps advancing the bar by date until real progress is entered.
+        const progress =
+          smart.fromCalendar && smart.barStatus !== 'completed' ? 0 : smart.progress
         const data = {
           projectId,
           appId,
@@ -218,16 +235,16 @@ export class ImportService {
           name: row.name_en || row.name_ar,
           nameAr: row.name_ar || row.name_en,
           type: row.type,
-          start: row.start || pack.project.planned_start,
-          end: row.end || pack.project.planned_end,
-          baselineStart: row.start || pack.project.planned_start,
-          baselineEnd: row.end || pack.project.planned_end,
-          progress: Math.min(100, Math.max(0, row.progress || 0)),
+          start,
+          end,
+          baselineStart: start,
+          baselineEnd: end,
+          progress,
           weightPct: row.weight_pct ?? null,
           dependencies: depsCodes.map((c) => idByCode.get(c) ?? c),
           assigneeId: assignee?.id ?? null,
           critical: false,
-          status: row.type === 'phase' ? 'In Progress' : row.progress >= 100 ? 'Completed' : 'To Do',
+          status: smart.status,
           description: row.deliverable_ar || null,
         }
         await this.prisma.wbsItem.upsert({
@@ -268,7 +285,11 @@ export class ImportService {
           ownerId: owner?.id ?? actorId,
           baselineDate: row.baseline_date || pack.project.planned_end,
           forecastDate: row.forecast_date || row.baseline_date || pack.project.planned_end,
-          status: row.status,
+          status: inferMilestoneStatus(
+            row.baseline_date || pack.project.planned_end,
+            row.forecast_date || row.baseline_date,
+            row.status,
+          ),
           dependencies: [] as string[],
           deliverables,
           deliverablesAr: deliverables,

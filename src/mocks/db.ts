@@ -8,6 +8,7 @@ import type { AppRole } from '@/auth/permissions'
 import { applyProjectPack } from '@/lib/project-pack'
 import type { ImportSummary, ParsedProjectPack } from '@/lib/project-pack'
 import { computeAppDashboardMetrics } from '@/lib/app-dashboard-metrics'
+import { inferScheduleState } from '@/lib/schedule-intelligence'
 import type {
   ActivityItem,
   AppMemberRole,
@@ -554,6 +555,37 @@ export function deleteApp(id: string): boolean {
   return true
 }
 
+/** Removes project and all related apps / plan / tickets / etc. */
+export function deleteProject(id: string): { ok: true; id: string } | null {
+  const project = db.projects.find((p) => p.id === id)
+  if (!project) return null
+
+  const appIds = new Set(db.apps.filter((a) => a.projectId === id).map((a) => a.id))
+  db.apps = db.apps.filter((a) => a.projectId !== id)
+  for (const appId of appIds) {
+    delete db.appMembers[appId]
+    delete db.appAccess[appId]
+  }
+  delete db.projectMembers[id]
+  db.wbs = db.wbs.filter((w) => w.projectId !== id)
+  db.milestones = db.milestones.filter((m) => m.projectId !== id)
+  db.slas = db.slas.filter((s) => s.projectId !== id)
+  db.risks = db.risks.filter((r) => r.projectId !== id)
+  db.transactions = db.transactions.filter((t) => t.projectId !== id)
+  db.approvals = db.approvals.filter((a) => a.projectId !== id)
+  db.documents = db.documents.filter((d) => d.projectId !== id)
+  db.activities = db.activities.filter((a) => a.projectId !== id)
+  db.tickets = db.tickets.filter((t) => t.projectId !== id)
+  db.people = db.people.map((p) =>
+    p.projectIds?.includes(id)
+      ? { ...p, projectIds: p.projectIds.filter((pid) => pid !== id) }
+      : p,
+  )
+  db.projects = db.projects.filter((p) => p.id !== id)
+  persist()
+  return { ok: true, id }
+}
+
 export function reorderApps(orderedIds: string[]) {
   orderedIds.forEach((id, index) => {
     const app = db.apps.find((a) => a.id === id)
@@ -603,33 +635,68 @@ function syncAppReadiness(appId: string | undefined) {
   }
 }
 
+function rollupParent(parentId: string | undefined) {
+  if (!parentId) return
+  const parent = db.wbs.find((w) => w.id === parentId)
+  if (!parent || parent.type !== 'phase') return
+  const kids = db.wbs.filter(
+    (w) => w.parentId === parentId && (w.type === 'task' || w.type === 'phase'),
+  )
+  if (!kids.length) return
+  const avg = kids.reduce((s, k) => s + (k.progress ?? 0), 0) / kids.length
+  const progress = Math.round(avg * 10) / 10
+  const smart = inferScheduleState(parent.start, parent.end, progress)
+  const idx = db.wbs.findIndex((w) => w.id === parentId)
+  if (idx < 0) return
+  db.wbs[idx] = { ...db.wbs[idx], progress, status: smart.status }
+  rollupParent(db.wbs[idx].parentId)
+}
+
 export function upsertTask(task: WbsItem, actorId: string): WbsItem {
   const idx = db.wbs.findIndex((w) => w.id === task.id)
   const exists = idx >= 0
   const prevAppId = exists ? db.wbs[idx].appId : undefined
-  if (exists) db.wbs[idx] = task
-  else db.wbs.unshift(task)
+  let next = task
+  if (task.status === 'Completed') {
+    next = { ...task, progress: 100 }
+  } else if (task.progress >= 100) {
+    next = { ...task, status: 'Completed' }
+  } else if ((task.progress ?? 0) <= 0) {
+    const smart = inferScheduleState(task.start, task.end, task.progress)
+    next = { ...task, progress: smart.progress, status: smart.status }
+  }
+  if (exists) db.wbs[idx] = next
+  else db.wbs.unshift(next)
   pushActivity({
-    projectId: task.projectId,
+    projectId: next.projectId,
     type: 'task',
-    title: exists ? `Task updated: ${task.name}` : `Task created: ${task.name}`,
-    titleAr: exists ? `تم تحديث المهمة: ${task.nameAr}` : `تم إنشاء المهمة: ${task.nameAr}`,
+    title: exists ? `Task updated: ${next.name}` : `Task created: ${next.name}`,
+    titleAr: exists ? `تم تحديث المهمة: ${next.nameAr}` : `تم إنشاء المهمة: ${next.nameAr}`,
     actorId,
   })
-  syncAppReadiness(task.appId)
-  if (prevAppId && prevAppId !== task.appId) syncAppReadiness(prevAppId)
+  rollupParent(next.parentId)
+  syncAppReadiness(next.appId)
+  if (prevAppId && prevAppId !== next.appId) syncAppReadiness(prevAppId)
   persist()
-  return task
+  return next
 }
 
 export function updateTaskStatus(id: string, status: TaskStatus): WbsItem | null {
   const idx = db.wbs.findIndex((w) => w.id === id)
   if (idx < 0) return null
-  db.wbs[idx] = {
-    ...db.wbs[idx],
-    status,
-    progress: status === 'Completed' ? 100 : db.wbs[idx].progress,
+  const current = db.wbs[idx]
+  let progress = current.progress
+  if (status === 'Completed') progress = 100
+  else if (status === 'To Do' || status === 'Backlog') progress = 0
+  else if (progress <= 0) {
+    progress = inferScheduleState(current.start, current.end, 0).progress || 1
   }
+  db.wbs[idx] = {
+    ...current,
+    status,
+    progress,
+  }
+  rollupParent(db.wbs[idx].parentId)
   syncAppReadiness(db.wbs[idx].appId)
   persist()
   return db.wbs[idx]

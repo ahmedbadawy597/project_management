@@ -183,6 +183,14 @@ export function useDeleteApp() {
   })
 }
 
+export function useDeleteProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.deleteProject(id),
+    onSuccess: () => invalidateDomain(qc),
+  })
+}
+
 export function useReorderApps() {
   const qc = useQueryClient()
   return useMutation({

@@ -144,6 +144,8 @@ export const api = {
       body: JSON.stringify(app),
     }),
   deleteApp: (id: string) => apiFetch<void>(`/apps/${id}`, { method: 'DELETE' }),
+  deleteProject: (id: string) =>
+    apiFetch<{ ok: boolean; id: string }>(`/projects/${id}`, { method: 'DELETE' }),
   reorderApps: (orderedIds: string[]) =>
     apiFetch<ProjectApp[]>('/apps/reorder', {
       method: 'PUT',

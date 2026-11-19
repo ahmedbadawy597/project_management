@@ -22,6 +22,7 @@ export type AccessScope = {
 export function isGlobalAccessRole(role: AppRole): boolean {
   return (
     role === 'Portfolio Director' ||
+    role === 'Project Manager' ||
     role === 'PMO Analyst' ||
     role === 'Executive Viewer'
   )
@@ -29,7 +30,7 @@ export function isGlobalAccessRole(role: AppRole): boolean {
 
 /** Delivery roles limited to joined projects/apps. */
 export function isMembershipScopedRole(role: AppRole): boolean {
-  return role === 'Developer' || role === 'Business' || role === 'Project Manager'
+  return role === 'Developer' || role === 'Business'
 }
 
 export function resolveAccessScope(
@@ -77,13 +78,6 @@ export function resolveAccessScope(
   // Parent projects of joined apps are visible for context (milestones / risks / chats).
   for (const app of apps) {
     if (appIds.has(app.id)) projectIds.add(app.projectId)
-  }
-
-  // Project managers see every app under projects they manage / belong to.
-  if (role === 'Project Manager') {
-    for (const app of apps) {
-      if (projectIds.has(app.projectId)) appIds.add(app.id)
-    }
   }
 
   return { mode: 'scoped', projectIds, appIds }

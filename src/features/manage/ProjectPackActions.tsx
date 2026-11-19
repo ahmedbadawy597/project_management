@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Download, FileSpreadsheet, Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ApiError } from '@/api/client'
 import { useImportProjectPack } from '@/api/hooks'
 import { useDomain } from '@/api/useDomain'
+import { useImportSetupStore } from '@/data/import-setup-store'
 import {
   SAMPLE_FILE_NAME,
   TEMPLATE_FILE_NAME,
@@ -30,8 +32,10 @@ type Props = {
 export function ProjectPackActions({ projectId, compact }: Props) {
   const { t, i18n } = useTranslation()
   const isAr = i18n.language?.startsWith('ar')
+  const navigate = useNavigate()
   const { state } = useDomain()
   const importPack = useImportProjectPack()
+  const markPending = useImportSetupStore((s) => s.markPending)
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [issues, setIssues] = useState<PackIssue[]>([])
@@ -120,6 +124,11 @@ export function ProjectPackActions({ projectId, compact }: Props) {
       }
       setIssues(soft)
       const s = res.summary!
+      markPending({
+        projectId: s.projectId,
+        projectCode: s.projectCode,
+        importedAt: new Date().toISOString(),
+      })
       toast.success(
         t('manage.packImportOk', {
           code: s.projectCode,
@@ -129,6 +138,7 @@ export function ProjectPackActions({ projectId, compact }: Props) {
           risks: s.risks,
         }),
       )
+      navigate(`/manage/projects/${s.projectId}/setup`)
     } catch (err) {
       if (err instanceof ApiError && err.body && typeof err.body === 'object' && 'issues' in err.body) {
         const serverIssues = (err.body as { issues?: PackIssue[] }).issues ?? []

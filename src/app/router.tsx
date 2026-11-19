@@ -25,6 +25,7 @@ import { SettingsPage } from '@/features/settings/SettingsPage'
 import { RoadmapPage } from '@/features/roadmap/RoadmapPage'
 import { ManageProjectsPage } from '@/features/manage/ManageProjectsPage'
 import { ManageProjectFormPage } from '@/features/manage/ManageProjectFormPage'
+import { ImportSetupPage } from '@/features/manage/ImportSetupPage'
 import { TeamsPage } from '@/features/teams/TeamsPage'
 import { AppsCatalogPage } from '@/features/apps/AppsCatalogPage'
 import { AppWorkspacePage } from '@/features/apps/AppWorkspacePage'
@@ -60,6 +61,10 @@ export const router = createBrowserRouter([
       { path: 'projects/:projectId', element: guard('projects:view', <ProjectDetailPage />) },
       { path: 'manage', element: guard('projects:write', <ManageProjectsPage />) },
       { path: 'manage/projects/new', element: guard('projects:write', <ManageProjectFormPage />) },
+      {
+        path: 'manage/projects/:projectId/setup',
+        element: guard('projects:write', <ImportSetupPage />),
+      },
       { path: 'manage/projects/:projectId', element: guard('projects:write', <ManageProjectFormPage />) },
       { path: 'teams', element: guard('projects:write', <TeamsPage />) },
       { path: 'apps-catalog', element: guard('projects:view', <AppsCatalogPage />) },

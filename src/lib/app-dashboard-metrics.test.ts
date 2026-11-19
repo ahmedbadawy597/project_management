@@ -101,4 +101,39 @@ describe('app dashboard metrics', () => {
     expect(plannedProgressByDate('2026-01-01', '2026-12-31', new Date('2026-01-01'))).toBe(0)
     expect(plannedProgressByDate('2026-01-01', '2026-12-31', new Date('2027-01-01'))).toBe(100)
   })
+
+  it('auto-fills past phases with blank progress so bars complete', () => {
+    const items = [
+      wbs({
+        id: 'p1',
+        type: 'phase',
+        name: 'Past',
+        progress: 0,
+        weightPct: 100,
+        start: '2025-01-01',
+        end: '2025-06-30',
+      }),
+    ]
+    const m = computeAppDashboardMetrics(app, items, new Date('2026-11-19'))
+    expect(m.overallProgress).toBe(100)
+    expect(m.phases[0].status).toBe('completed')
+  })
+
+  it('advances in-window blank phases by calendar', () => {
+    const items = [
+      wbs({
+        id: 'p1',
+        type: 'phase',
+        name: 'Active',
+        progress: 0,
+        weightPct: 100,
+        start: '2026-01-01',
+        end: '2026-12-31',
+      }),
+    ]
+    const m = computeAppDashboardMetrics(app, items, new Date('2026-07-01'))
+    expect(m.overallProgress).toBeGreaterThan(40)
+    expect(m.overallProgress).toBeLessThan(60)
+    expect(m.phases[0].status).toBe('in_progress')
+  })
 })

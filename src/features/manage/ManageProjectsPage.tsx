@@ -9,20 +9,25 @@ import {
   Plus,
   Search,
   Settings2,
+  Trash2,
   Users,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { ProjectPackActions } from './ProjectPackActions'
+import { useImportSetupStore } from '@/data/import-setup-store'
 import { useAuth } from '@/auth/AuthProvider'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { HealthIndicator } from '@/components/shared/HealthIndicator'
 import { KPICard } from '@/components/shared/KPICard'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { PageError, PageLoading } from '@/components/shared/PageStates'
+import { useDeleteProject } from '@/api/hooks'
 import { useDomain } from '@/api/useDomain'
 import { useAccessScope } from '@/hooks/useAccessScope'
 import { enrichProject } from '@/data/selectors'
@@ -38,7 +43,12 @@ export function ManageProjectsPage() {
   const { state, language, isLoading, isError, refetch } = useDomain()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>('All')
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const canWrite = can('projects:write')
+  const pendingSetups = useImportSetupStore((s) => s.pending)
+  const isSetupPending = useImportSetupStore((s) => s.isPending)
+  const clearPendingSetup = useImportSetupStore((s) => s.clearPending)
+  const deleteProject = useDeleteProject()
 
   const rows = useMemo(() => {
     if (!state) return []
@@ -125,6 +135,24 @@ export function ManageProjectsPage() {
           tone={unassigned > 0 ? 'warning' : 'success'}
         />
       </div>
+
+      {canWrite && pendingSetups.length > 0 ? (
+        <Card className="mb-6 border-teal/30 bg-teal/5">
+          <CardContent className="space-y-3 py-4">
+            <h2 className="text-sm font-bold text-navy">{t('importSetup.pendingTitle')}</h2>
+            <p className="text-xs text-muted">{t('importSetup.pendingBody')}</p>
+            <div className="flex flex-wrap gap-2">
+              {pendingSetups.map((p) => (
+                <Button key={p.projectId} asChild variant="outline" className="min-h-10">
+                  <Link to={`/manage/projects/${p.projectId}/setup`}>
+                    {t('importSetup.continue', { code: p.projectCode })}
+                  </Link>
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {canWrite && !isScoped ? (
         <Card className="mb-6">
@@ -256,6 +284,13 @@ export function ManageProjectsPage() {
                   </div>
 
                   <div className="flex w-full flex-col gap-2 sm:w-auto lg:min-w-[220px]">
+                    <Button asChild variant="outline" className="min-h-11 w-full border-teal/40 text-teal">
+                      <Link to={`/manage/projects/${row.id}/setup`}>
+                        {isSetupPending(row.id)
+                          ? t('importSetup.continue', { code: row.code })
+                          : t('importSetup.reviewPlan')}
+                      </Link>
+                    </Button>
                     <Button asChild className="min-h-11 w-full">
                       <Link to={`/manage/projects/${row.id}`}>
                         <Settings2 className="me-1.5 h-4 w-4" />
@@ -288,6 +323,18 @@ export function ManageProjectsPage() {
                         </Link>
                       </Button>
                     </div>
+                    {canWrite ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-10 w-full border-danger/30 text-danger hover:bg-danger/5"
+                        onClick={() => setDeleteId(row.id)}
+                      >
+                        <Trash2 className="me-1 h-3.5 w-3.5" />
+                        {t('manage.deleteProject')}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </article>
@@ -295,6 +342,36 @@ export function ManageProjectsPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null)
+        }}
+        tone="danger"
+        title={t('manage.deleteProjectTitle')}
+        description={t('manage.deleteProjectBody', {
+          code: rows.find((r) => r.id === deleteId)?.code ?? '',
+          apps: apps.filter((a) => a.projectId === deleteId).length,
+        })}
+        confirmLabel={t('manage.deleteProjectConfirm')}
+        cancelLabel={t('common.cancel')}
+        busy={deleteProject.isPending}
+        onConfirm={() => {
+          if (!deleteId) return
+          const id = deleteId
+          void deleteProject
+            .mutateAsync(id)
+            .then(() => {
+              clearPendingSetup(id)
+              setDeleteId(null)
+              toast.success(t('manage.deleteProjectOk'))
+            })
+            .catch(() => {
+              toast.error(t('manage.deleteProjectFailed'))
+            })
+        }}
+      />
     </div>
   )
 }

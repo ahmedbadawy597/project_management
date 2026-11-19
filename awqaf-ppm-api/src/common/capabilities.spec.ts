@@ -9,8 +9,13 @@ describe('capabilities', () => {
     expect(hasCapability('Executive Viewer', 'projects:write')).toBe(false)
   })
 
-  it('denies pm approvals:decide', () => {
-    expect(hasCapability('Project Manager', 'approvals:decide')).toBe(false)
+  it('gives Project Manager the same capabilities as Portfolio Director', () => {
+    expect(hasCapability('Project Manager', 'approvals:decide')).toBe(true)
+    expect(hasCapability('Project Manager', 'admin:view')).toBe(true)
+    expect(hasCapability('Project Manager', 'budget:adjust')).toBe(true)
+    expect(capabilitiesForRole('Project Manager')).toEqual(
+      capabilitiesForRole('Portfolio Director'),
+    )
   })
 
   it('returns all capabilities for director', () => {

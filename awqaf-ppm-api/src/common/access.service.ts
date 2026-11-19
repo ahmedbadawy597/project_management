@@ -7,7 +7,7 @@ export class AccessService {
   constructor(private readonly prisma: PrismaService) {}
 
   isFullAccess(role: AppRole) {
-    return role === 'Portfolio Director'
+    return role === 'Portfolio Director' || role === 'Project Manager'
   }
 
   async accessibleProjectIds(personId: string, role: AppRole): Promise<string[] | 'all'> {
@@ -27,10 +27,10 @@ export class AccessService {
       this.prisma.projectApp.findMany({ where: { ownerId: personId }, select: { id: true } }),
     ])
 
-    // Project Managers see applications under projects they manage or belong to.
+    // PMO Analysts see applications under projects they manage or belong to.
     // Developers/Business see only explicitly assigned apps (membership / ownership).
     let projectScopedAppIds: string[] = []
-    if (role === 'Project Manager' || role === 'PMO Analyst') {
+    if (role === 'PMO Analyst') {
       const projectIds = await this.accessibleProjectIds(personId, role)
       if (projectIds !== 'all' && projectIds.length > 0) {
         projectScopedAppIds = (
@@ -60,7 +60,7 @@ export class AccessService {
       where: { appId_personId: { appId, personId } },
     })
     if (member) return true
-    if (role === 'Project Manager' || role === 'PMO Analyst') {
+    if (role === 'PMO Analyst') {
       return this.canAccessProject(personId, role, app.projectId)
     }
     return false

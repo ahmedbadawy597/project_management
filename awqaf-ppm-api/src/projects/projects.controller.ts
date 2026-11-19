@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -52,5 +53,13 @@ export class ProjectsController {
   @ApiOkResponse({ type: ProjectDto })
   update(@Param('id') id: string, @Body() body: UpdateProjectDto) {
     return this.projects.update(id, body as Record<string, unknown>)
+  }
+
+  @Delete(':id')
+  @RequireCapabilities('projects:write')
+  @ApiSecured('Delete project and all related apps / plan data', { forbidden: true })
+  @ApiOkResponse({ schema: { example: { ok: true, id: 'prj-awqaf' } } })
+  remove(@Param('id') id: string) {
+    return this.projects.remove(id)
   }
 }

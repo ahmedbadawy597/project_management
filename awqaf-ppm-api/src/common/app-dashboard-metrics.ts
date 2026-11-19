@@ -1,6 +1,17 @@
 /** Mirrors frontend src/lib/app-dashboard-metrics.ts for Nest dashboard endpoint. */
 
-export type PhaseBarStatus = 'completed' | 'in_progress' | 'delayed' | 'not_started'
+import {
+  clampPct,
+  daysBetweenDates,
+  effectiveScheduleProgress,
+  phaseBarStatus,
+  plannedProgressByDate,
+  startOfDay,
+  type PhaseBarStatus,
+} from './schedule-intelligence'
+
+export type { PhaseBarStatus }
+export { phaseBarStatus, plannedProgressByDate }
 
 export type AppLike = {
   id: string
@@ -51,49 +62,18 @@ export type AppDashboardMetrics = {
   hasPlan: boolean
 }
 
-const DAY_MS = 86_400_000
-
-function startOfDay(isoOrDate: string | Date): number {
-  const d = typeof isoOrDate === 'string' ? new Date(`${isoOrDate.slice(0, 10)}T00:00:00`) : isoOrDate
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+function itemEffectiveProgress(item: WbsLike, today: Date): number {
+  return effectiveScheduleProgress(item.start, item.end, item.progress, today).progress
 }
 
-function clampPct(n: number) {
-  if (!Number.isFinite(n)) return 0
-  return Math.max(0, Math.min(100, Math.round(n * 10) / 10))
-}
-
-function daysBetween(a: number, b: number) {
-  return Math.round((b - a) / DAY_MS)
-}
-
-export function plannedProgressByDate(start: string, end: string, today = new Date()): number {
-  if (!start || !end) return 0
-  const s = startOfDay(start)
-  const e = startOfDay(end)
-  const t = startOfDay(today)
-  if (e <= s) return t >= e ? 100 : 0
-  if (t <= s) return 0
-  if (t >= e) return 100
-  return clampPct(((t - s) / (e - s)) * 100)
-}
-
-export function phaseBarStatus(progress: number, start: string, end: string, today = new Date()): PhaseBarStatus {
-  const p = clampPct(progress)
-  if (p >= 100) return 'completed'
-  const t = startOfDay(today)
-  if (end && t > startOfDay(end) && p < 100) return 'delayed'
-  if (p <= 0) return 'not_started'
-  return 'in_progress'
-}
-
-function resolvePhaseProgress(phase: WbsLike, all: WbsLike[]): number {
+function resolvePhaseProgress(phase: WbsLike, all: WbsLike[], today: Date): number {
   const kids = all.filter(
     (w) => w.parentId === phase.id && (w.type === 'task' || w.type === 'phase'),
   )
-  if (!kids.length) return clampPct(phase.progress ?? 0)
-  const avg = kids.reduce((s, k) => s + (k.progress ?? 0), 0) / kids.length
-  if ((phase.progress ?? 0) > 0) return clampPct(Math.max(phase.progress, avg))
+  if (!kids.length) return itemEffectiveProgress(phase, today)
+  const avg = kids.reduce((s, k) => s + itemEffectiveProgress(k, today), 0) / kids.length
+  const ownReported = clampPct(phase.progress ?? 0)
+  if (ownReported > 0) return clampPct(Math.max(ownReported, avg))
   return clampPct(avg)
 }
 
@@ -109,7 +89,7 @@ export function computeAppDashboardMetrics(
     .sort((a, b) => a.start.localeCompare(b.start) || (a.code ?? a.id).localeCompare(b.code ?? b.id))
 
   const phaseRows: AppDashboardPhase[] = phases.map((ph) => {
-    const progress = resolvePhaseProgress(ph, appWbs)
+    const progress = resolvePhaseProgress(ph, appWbs, today)
     return {
       id: ph.id,
       code: ph.code ?? undefined,
@@ -135,7 +115,9 @@ export function computeAppDashboardMetrics(
       overallProgress = clampPct(phaseRows.reduce((s, p) => s + p.progress, 0) / phaseRows.length)
     }
   } else if (appWbs.length) {
-    overallProgress = clampPct(appWbs.reduce((s, w) => s + (w.progress ?? 0), 0) / appWbs.length)
+    overallProgress = clampPct(
+      appWbs.reduce((s, w) => s + itemEffectiveProgress(w, today), 0) / appWbs.length,
+    )
   } else {
     overallProgress = clampPct(app.readiness ?? 0)
   }
@@ -144,15 +126,15 @@ export function computeAppDashboardMetrics(
 
   let delayDays = 0
   if (overallProgress < 100 && app.plannedEnd) {
-    const end = startOfDay(app.plannedEnd)
     const t = startOfDay(today)
-    if (t > end) delayDays = Math.max(delayDays, daysBetween(end, t))
+    const end = startOfDay(app.plannedEnd)
+    if (t > end) delayDays = Math.max(delayDays, daysBetweenDates(app.plannedEnd, today))
   }
   for (const ph of phaseRows) {
     if (ph.progress < 100 && ph.end) {
-      const end = startOfDay(ph.end)
       const t = startOfDay(today)
-      if (t > end) delayDays = Math.max(delayDays, daysBetween(end, t))
+      const end = startOfDay(ph.end)
+      if (t > end) delayDays = Math.max(delayDays, daysBetweenDates(ph.end, today))
     }
   }
 

@@ -4,9 +4,16 @@ import type {
   Person,
   Project,
   ProjectApp,
+  ProjectAppStatus,
+  ProjectStatus,
   Risk,
   WbsItem,
 } from '@/data/types'
+import {
+  inferDeliveryStatus,
+  inferMilestoneStatus,
+  inferScheduleState,
+} from '@/lib/schedule-intelligence'
 import {
   appIdFromCode,
   milestoneIdFromCodes,
@@ -52,7 +59,11 @@ export function applyProjectPack(
     description: pack.project.description_en,
     descriptionAr: pack.project.description_ar,
     managerId: manager?.id ?? existing?.managerId ?? actorId,
-    status: pack.project.status,
+    status: inferDeliveryStatus(
+      pack.project.planned_start,
+      pack.project.planned_end,
+      pack.project.status,
+    ) as ProjectStatus,
     plannedProgress: existing?.plannedProgress ?? 0,
     actualProgress: existing?.actualProgress ?? 0,
     plannedStart: pack.project.planned_start,
@@ -88,7 +99,11 @@ export function applyProjectPack(
       description: row.description_ar,
       descriptionAr: row.description_ar,
       ownerId: owner?.id ?? prev?.ownerId,
-      status: row.status,
+      status: inferDeliveryStatus(
+        row.planned_start,
+        row.planned_end,
+        row.status,
+      ) as ProjectAppStatus,
       plannedStart: row.planned_start,
       plannedEnd: row.planned_end,
       url: prev?.url ?? '',
@@ -161,6 +176,12 @@ export function applyProjectPack(
       const depsCodes = row.depends_on
         ? row.depends_on.split(/[;,]/).map((s) => s.trim()).filter(Boolean)
         : []
+      const start = row.start || pack.project.planned_start
+      const end = row.end || pack.project.planned_end
+      const reported = Math.min(100, Math.max(0, row.progress || 0))
+      const smart = inferScheduleState(start, end, reported)
+      const progress =
+        smart.fromCalendar && smart.barStatus !== 'completed' ? 0 : smart.progress
       const item: WbsItem = {
         id,
         projectId,
@@ -170,15 +191,15 @@ export function applyProjectPack(
         name: row.name_en || row.name_ar,
         nameAr: row.name_ar || row.name_en,
         type: row.type,
-        start: row.start || pack.project.planned_start,
-        end: row.end || pack.project.planned_end,
-        baselineStart: row.start || pack.project.planned_start,
-        baselineEnd: row.end || pack.project.planned_end,
-        progress: Math.min(100, Math.max(0, row.progress || 0)),
+        start,
+        end,
+        baselineStart: start,
+        baselineEnd: end,
+        progress,
         weightPct: row.weight_pct,
         dependencies: depsCodes.map((c) => idByCode.get(c) ?? c),
         assigneeId: assignee?.id,
-        status: row.type === 'phase' ? 'In Progress' : row.progress >= 100 ? 'Completed' : 'To Do',
+        status: smart.status,
         description: row.deliverable_ar || undefined,
       }
       deps.upsertWbs(item, actorId)
@@ -201,7 +222,11 @@ export function applyProjectPack(
         ownerId: owner?.id ?? actorId,
         baselineDate: row.baseline_date || pack.project.planned_end,
         forecastDate: row.forecast_date || row.baseline_date || pack.project.planned_end,
-        status: row.status,
+        status: inferMilestoneStatus(
+          row.baseline_date || pack.project.planned_end,
+          row.forecast_date || row.baseline_date,
+          row.status,
+        ) as Milestone['status'],
         dependencies: [],
         deliverables,
         deliverablesAr: deliverables,

@@ -55,26 +55,8 @@ const ALL: Capability[] = [
 
 const ROLE_CAPABILITIES: Record<AppRole, Capability[]> = {
   'Portfolio Director': ALL,
-  'Project Manager': [
-    'portfolio:view',
-    'executive:view',
-    'projects:view',
-    'projects:write',
-    'tasks:write',
-    'milestones:write',
-    'risks:write',
-    'sla:view',
-    'budget:view',
-    'documents:view',
-    'documents:upload',
-    'approvals:view',
-    'reports:view',
-    'reports:export',
-    'resources:view',
-    'notifications:view',
-    'gantt:view',
-    'roadmap:view',
-  ],
+  /** Same capabilities as Portfolio Director (admin, approvals, budget adjust, full write). */
+  'Project Manager': ALL,
   Developer: [
     'projects:view',
     'tasks:write',
@@ -117,7 +99,8 @@ const ROLE_CAPABILITIES: Record<AppRole, Capability[]> = {
 export const ROLE_ACCESS_COPY: Record<AppRole, string> = {
   'Portfolio Director':
     'System admin — create users, manage all projects/apps/teams, approvals, and full system access',
-  'Project Manager': 'Assigned projects, tasks, milestones, risks, and documents',
+  'Project Manager':
+    'Same as Portfolio Director — create users, manage all projects/apps/teams, approvals, and full system access',
   Developer: 'Delivery work — tasks, tickets, and risks for assigned apps',
   Business: 'Business stakeholder — tickets, status, approvals view, and reports for assigned apps',
   'PMO Analyst': 'Read portfolio, export reports, collaborate on tickets for assigned apps',

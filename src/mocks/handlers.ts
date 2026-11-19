@@ -30,6 +30,7 @@ import {
   createTicket,
   decideApproval,
   deleteApp,
+  deleteProject,
   deleteTask,
   getDb,
   getPerson,
@@ -267,6 +268,15 @@ export const handlers = [
     const updated = updateProject(String(params.id), patch)
     if (!updated) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
     return HttpResponse.json(updated)
+  }),
+
+  http.delete('/api/projects/:id', ({ params, request }) => {
+    const persona = bearerPersona(request)
+    if (!persona) return unauthorized()
+    if (!capabilitiesForRole(persona.role).includes('projects:write')) return forbidden()
+    const result = deleteProject(String(params.id))
+    if (!result) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json(result)
   }),
 
   http.get('/api/apps', ({ request }) => {
