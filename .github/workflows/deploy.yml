@@ -54,10 +54,13 @@ jobs:
 
           echo "==> [5/6] Sync schema + start"
           $COMPOSE up -d postgres
-          $COMPOSE run --rm --entrypoint "" api npx prisma migrate deploy \
-            || $COMPOSE run --rm --entrypoint "" api npx prisma db push --skip-generate \
+          # -T + closed stdin: compose run must not consume the rest of this SSH script
+          $COMPOSE run --rm -T --entrypoint "" api \
+            npx prisma migrate deploy </dev/null \
+            || $COMPOSE run --rm -T --entrypoint "" api \
+                 npx prisma db push --skip-generate </dev/null \
             || echo "WARN: schema sync failed"
-          $COMPOSE up -d
+          $COMPOSE up -d --force-recreate --remove-orphans
 
           echo "==> [6/6] Health check"
           for i in $(seq 1 25); do
