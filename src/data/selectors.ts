@@ -14,6 +14,7 @@ import type {
   SlaRecord,
   WbsItem,
 } from './types'
+import { computeProjectScheduleProgress } from '@/lib/app-dashboard-metrics'
 import { DEMO_TODAY } from './seed'
 
 /** Domain snapshot used by KPI helpers (API bootstrap shape). */
@@ -69,26 +70,36 @@ export function deriveHealth(project: Project, openCriticalRisks = 0): HealthSta
 }
 
 export function enrichProject(state: DomainState, project: Project) {
+  const apps = (state.apps ?? []).filter((a) => a.projectId === project.id)
+  const rolled = computeProjectScheduleProgress(project, apps, state.wbs)
+  const resolved: Project = rolled.hasPlan
+    ? {
+        ...project,
+        actualProgress: rolled.actualProgress,
+        plannedProgress: rolled.plannedProgress,
+      }
+    : project
+
   const openCritical = state.risks.filter(
     (r) =>
-      r.projectId === project.id &&
+      r.projectId === resolved.id &&
       r.status !== 'Closed' &&
       (r.severity === 'Critical' || r.type === 'issue'),
   ).length
-  const health = deriveHealth(project, openCritical)
-  const manager = state.people.find((p) => p.id === project.managerId)
+  const health = deriveHealth(resolved, openCritical)
+  const manager = state.people.find((p) => p.id === resolved.managerId)
   return {
-    ...project,
-    scheduleVariance: scheduleVariance(project),
-    spi: spi(project),
-    budgetUtilization: budgetUtilization(project),
+    ...resolved,
+    scheduleVariance: scheduleVariance(resolved),
+    spi: spi(resolved),
+    budgetUtilization: budgetUtilization(resolved),
     health,
     managerName: manager?.name ?? '—',
     managerNameAr: manager?.nameAr ?? '—',
-    openRisks: state.risks.filter((r) => r.projectId === project.id && r.status !== 'Closed')
+    openRisks: state.risks.filter((r) => r.projectId === resolved.id && r.status !== 'Closed')
       .length,
     pendingApprovals: state.approvals.filter(
-      (a) => a.projectId === project.id && a.status === 'Pending',
+      (a) => a.projectId === resolved.id && a.status === 'Pending',
     ).length,
   }
 }

@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
-import { computeAppDashboardMetrics } from '../common/app-dashboard-metrics'
+import {
+  computeAppDashboardMetrics,
+  computeProjectScheduleProgress,
+} from '../common/app-dashboard-metrics'
 import { pushActivity } from '../common/activity.util'
 import { AccessService } from '../common/access.service'
 import {
@@ -223,10 +226,9 @@ export class ImportService {
         const end = row.end || pack.project.planned_end
         const reported = Math.min(100, Math.max(0, row.progress || 0))
         const smart = inferScheduleState(start, end, reported)
-        // Lock completed past work at 100%; leave active calendar-driven rows at 0
-        // so the dashboard keeps advancing the bar by date until real progress is entered.
-        const progress =
-          smart.fromCalendar && smart.barStatus !== 'completed' ? 0 : smart.progress
+        // Keep explicit pack progress. Only leave blank rows at 0 so live dashboards
+        // can advance them from the calendar until real progress is entered.
+        const progress = reported > 0 ? smart.progress : 0
         const data = {
           projectId,
           appId,
@@ -333,6 +335,8 @@ export class ImportService {
       }
     }
 
+    await this.syncProjectProgress(projectId)
+
     return {
       projectCode: pack.project.project_code,
       projectId,
@@ -343,5 +347,21 @@ export class ImportService {
       risks,
       created,
     }
+  }
+
+  private async syncProjectProgress(projectId: string) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } })
+    if (!project) return
+    const apps = await this.prisma.projectApp.findMany({ where: { projectId } })
+    const wbs = await this.prisma.wbsItem.findMany({ where: { projectId } })
+    const rolled = computeProjectScheduleProgress(project, apps, wbs)
+    if (!rolled.hasPlan) return
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        actualProgress: rolled.actualProgress,
+        plannedProgress: rolled.plannedProgress,
+      },
+    })
   }
 }

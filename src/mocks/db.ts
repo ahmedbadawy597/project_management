@@ -7,7 +7,10 @@ import {
 import type { AppRole } from '@/auth/permissions'
 import { applyProjectPack } from '@/lib/project-pack'
 import type { ImportSummary, ParsedProjectPack } from '@/lib/project-pack'
-import { computeAppDashboardMetrics } from '@/lib/app-dashboard-metrics'
+import {
+  computeAppDashboardMetrics,
+  computeProjectScheduleProgress,
+} from '@/lib/app-dashboard-metrics'
 import { inferScheduleState } from '@/lib/schedule-intelligence'
 import type {
   ActivityItem,
@@ -635,6 +638,17 @@ function syncAppReadiness(appId: string | undefined) {
   }
 }
 
+function syncProjectProgress(projectId: string | undefined) {
+  if (!projectId) return
+  const project = db.projects.find((p) => p.id === projectId)
+  if (!project) return
+  const apps = db.apps.filter((a) => a.projectId === projectId)
+  const rolled = computeProjectScheduleProgress(project, apps, db.wbs)
+  if (!rolled.hasPlan) return
+  project.actualProgress = rolled.actualProgress
+  project.plannedProgress = rolled.plannedProgress
+}
+
 function rollupParent(parentId: string | undefined) {
   if (!parentId) return
   const parent = db.wbs.find((w) => w.id === parentId)
@@ -677,6 +691,7 @@ export function upsertTask(task: WbsItem, actorId: string): WbsItem {
   rollupParent(next.parentId)
   syncAppReadiness(next.appId)
   if (prevAppId && prevAppId !== next.appId) syncAppReadiness(prevAppId)
+  syncProjectProgress(next.projectId)
   persist()
   return next
 }
@@ -698,6 +713,7 @@ export function updateTaskStatus(id: string, status: TaskStatus): WbsItem | null
   }
   rollupParent(db.wbs[idx].parentId)
   syncAppReadiness(db.wbs[idx].appId)
+  syncProjectProgress(db.wbs[idx].projectId)
   persist()
   return db.wbs[idx]
 }
@@ -708,6 +724,7 @@ export function deleteTask(id: string): boolean {
   db.wbs = db.wbs.filter((w) => w.id !== id)
   if (db.wbs.length === before) return false
   syncAppReadiness(existing?.appId)
+  syncProjectProgress(existing?.projectId)
   persist()
   return true
 }
@@ -770,6 +787,8 @@ export function importProjectPack(pack: ParsedProjectPack, actorId: string): Imp
     upsertRisk: (r) => {
       upsertRisk(r)
     },
+    listApps: (projectId) => db.apps.filter((a) => a.projectId === projectId),
+    listWbs: (projectId) => db.wbs.filter((w) => w.projectId === projectId),
   })
 }
 

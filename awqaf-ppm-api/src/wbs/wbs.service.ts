@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { pushActivity } from '../common/activity.util'
-import { computeAppDashboardMetrics } from '../common/app-dashboard-metrics'
+import {
+  computeAppDashboardMetrics,
+  computeProjectScheduleProgress,
+} from '../common/app-dashboard-metrics'
 import { mapWbs } from '../common/mappers'
 import { inferScheduleState, inferWbsStatus } from '../common/schedule-intelligence'
 import { PrismaService } from '../prisma/prisma.service'
@@ -29,6 +32,23 @@ export class WbsService {
         data: { readiness: Math.round(metrics.overallProgress) },
       })
     }
+  }
+
+  private async syncProjectProgress(projectId: string | null | undefined) {
+    if (!projectId) return
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } })
+    if (!project) return
+    const apps = await this.prisma.projectApp.findMany({ where: { projectId } })
+    const wbs = await this.prisma.wbsItem.findMany({ where: { projectId } })
+    const rolled = computeProjectScheduleProgress(project, apps, wbs)
+    if (!rolled.hasPlan) return
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        actualProgress: rolled.actualProgress,
+        plannedProgress: rolled.plannedProgress,
+      },
+    })
   }
 
   /** Keep parent phase progress/status aligned with child work. */
@@ -124,6 +144,7 @@ export class WbsService {
     if (existing?.appId && existing.appId !== row.appId) {
       await this.syncAppReadiness(existing.appId)
     }
+    await this.syncProjectProgress(row.projectId)
     return mapWbs(row)
   }
 
@@ -148,6 +169,7 @@ export class WbsService {
     })
     await this.rollupParent(row.parentId)
     await this.syncAppReadiness(row.appId)
+    await this.syncProjectProgress(row.projectId)
     return mapWbs(row)
   }
 
@@ -160,5 +182,6 @@ export class WbsService {
     }
     if (existing?.parentId) await this.rollupParent(existing.parentId)
     await this.syncAppReadiness(existing?.appId)
+    await this.syncProjectProgress(existing?.projectId)
   }
 }

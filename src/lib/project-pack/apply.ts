@@ -9,6 +9,7 @@ import type {
   Risk,
   WbsItem,
 } from '@/data/types'
+import { computeProjectScheduleProgress } from '@/lib/app-dashboard-metrics'
 import {
   inferDeliveryStatus,
   inferMilestoneStatus,
@@ -34,6 +35,8 @@ export type ApplyPackDeps = {
   upsertWbs: (item: WbsItem, actorId: string) => void
   upsertMilestone: (m: Milestone) => void
   upsertRisk: (r: Risk) => void
+  listApps?: (projectId: string) => ProjectApp[]
+  listWbs?: (projectId: string) => WbsItem[]
 }
 
 function personByEmail(people: Person[], email: string | undefined) {
@@ -180,8 +183,8 @@ export function applyProjectPack(
       const end = row.end || pack.project.planned_end
       const reported = Math.min(100, Math.max(0, row.progress || 0))
       const smart = inferScheduleState(start, end, reported)
-      const progress =
-        smart.fromCalendar && smart.barStatus !== 'completed' ? 0 : smart.progress
+      // Keep explicit pack progress; blank rows stay 0 for live calendar fill in dashboards.
+      const progress = reported > 0 ? smart.progress : 0
       const item: WbsItem = {
         id,
         projectId,
@@ -259,6 +262,23 @@ export function applyProjectPack(
       }
       deps.upsertRisk(r)
       risks += 1
+    }
+  }
+
+  if (deps.listApps && deps.listWbs) {
+    const apps = deps.listApps(projectId)
+    const wbs = deps.listWbs(projectId)
+    const rolled = computeProjectScheduleProgress(project, apps, wbs)
+    if (rolled.hasPlan) {
+      deps.upsertProject(
+        {
+          ...project,
+          actualProgress: rolled.actualProgress,
+          plannedProgress: rolled.plannedProgress,
+        },
+        actorId,
+        false,
+      )
     }
   }
 

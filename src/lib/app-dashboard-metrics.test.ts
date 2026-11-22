@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ProjectApp, WbsItem } from '@/data/types'
 import {
   computeAppDashboardMetrics,
+  computeProjectScheduleProgress,
   phaseBarStatus,
   plannedProgressByDate,
 } from './app-dashboard-metrics'
@@ -135,5 +136,36 @@ describe('app dashboard metrics', () => {
     expect(m.overallProgress).toBeGreaterThan(40)
     expect(m.overallProgress).toBeLessThan(60)
     expect(m.phases[0].status).toBe('in_progress')
+  })
+
+  it('rolls app plan progress up to the project', () => {
+    const appB: ProjectApp = {
+      ...app,
+      id: 'app-2',
+      code: 'APP-2',
+      plannedStart: '2026-01-01',
+      plannedEnd: '2026-12-31',
+    }
+    const items = [
+      wbs({ id: 'p1', type: 'phase', name: 'A', progress: 100, weightPct: 100, code: 'PH-A' }),
+      wbs({
+        id: 'p2',
+        appId: 'app-2',
+        type: 'phase',
+        name: 'B',
+        progress: 50,
+        weightPct: 100,
+        code: 'PH-B',
+      }),
+    ]
+    const rolled = computeProjectScheduleProgress(
+      { id: 'prj-1', plannedStart: '2026-01-01', plannedEnd: '2026-12-31' },
+      [app, appB],
+      items,
+      new Date('2026-02-01'),
+    )
+    expect(rolled.hasPlan).toBe(true)
+    expect(rolled.actualProgress).toBe(75)
+    expect(rolled.plannedProgress).toBeGreaterThan(0)
   })
 })

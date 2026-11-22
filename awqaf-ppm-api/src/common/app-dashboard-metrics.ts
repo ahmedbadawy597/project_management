@@ -151,3 +151,29 @@ export function computeAppDashboardMetrics(
     hasPlan: phaseRows.length > 0 || appWbs.some((w) => w.type === 'task'),
   }
 }
+
+export type ProjectScheduleProgress = {
+  actualProgress: number
+  plannedProgress: number
+  hasPlan: boolean
+}
+
+/** Roll up app plan progress into project actual/planned %. */
+export function computeProjectScheduleProgress(
+  project: { id: string; plannedStart: string; plannedEnd: string },
+  apps: AppLike[],
+  wbs: WbsLike[],
+  today = new Date(),
+): ProjectScheduleProgress {
+  const projectApps = apps.filter((a) => a.projectId === project.id)
+  const metrics = projectApps.map((app) => computeAppDashboardMetrics(app, wbs, today))
+  const withPlan = metrics.filter((m) => m.hasPlan)
+  const plannedProgress = plannedProgressByDate(project.plannedStart, project.plannedEnd, today)
+  if (!withPlan.length) {
+    return { actualProgress: 0, plannedProgress, hasPlan: false }
+  }
+  const actualProgress = clampPct(
+    withPlan.reduce((s, m) => s + m.overallProgress, 0) / withPlan.length,
+  )
+  return { actualProgress, plannedProgress, hasPlan: true }
+}
