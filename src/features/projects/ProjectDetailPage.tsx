@@ -103,9 +103,9 @@ export function ProjectDetailPage() {
           <div className="ms-auto min-w-[160px]">
             <div className="mb-1 flex justify-between text-xs">
               <span>{t('common.progress')}</span>
-              <span>{formatPercent(project.actualProgress)}</span>
+              <span>{formatPercent(enriched.actualProgress)}</span>
             </div>
-            <Progress value={project.actualProgress} />
+            <Progress value={enriched.actualProgress} />
           </div>
         </div>
       </div>
@@ -123,8 +123,8 @@ export function ProjectDetailPage() {
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <KPICard label={t('project.plannedProgress')} value={formatPercent(project.plannedProgress)} />
-            <KPICard label={t('project.actualProgress')} value={formatPercent(project.actualProgress)} tone="teal" />
+            <KPICard label={t('project.plannedProgress')} value={formatPercent(enriched.plannedProgress)} />
+            <KPICard label={t('project.actualProgress')} value={formatPercent(enriched.actualProgress)} tone="teal" />
             <KPICard
               label={t('project.scheduleVariance')}
               value={`${enriched.scheduleVariance > 0 ? '+' : ''}${enriched.scheduleVariance} pp`}
@@ -164,7 +164,7 @@ export function ProjectDetailPage() {
                 <CardTitle>{t('project.progressComparison')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <ProgressComparison planned={project.plannedProgress} actual={project.actualProgress} />
+                <ProgressComparison planned={enriched.plannedProgress} actual={enriched.actualProgress} />
               </CardContent>
             </Card>
             <Card>
